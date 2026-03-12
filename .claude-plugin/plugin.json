@@ -1,8 +1,8 @@
 {
   "name": "harness-engineering",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "displayName": "AI Harness Engineering",
-  "description": "PDCA 기반 AI 소프트웨어 개발 자동화 플러그인. 설계, 구현, 검증, 문서화의 완전한 워크플로우를 제공합니다.",
+  "description": "PDCA 기반 AI 소프트웨어 개발 자동화 플러그인. 설계, 구현, 검증, 문서화의 완전한 워크플로우를 제공합니다. superpowers와 bkit-claude-code의 모범 사례를 통합했습니다.",
   "author": "developjik",
   "license": "MIT",
   "homepage": "https://github.com/developjik/harness-engineering",
@@ -19,46 +19,53 @@
     "development",
     "tdd",
     "code-review",
-    "documentation"
+    "documentation",
+    "multi-agent",
+    "context-engineering",
+    "git-worktree"
   ],
   "skills": [
     {
       "name": "brainstorm",
-      "path": "skills/brainstorm"
+      "path": "skills/brainstorm",
+      "description": "요구사항 정제 및 설계 아이디어 도출. 프로젝트의 청사진을 작성합니다."
     },
     {
       "name": "implement",
-      "path": "skills/implement"
+      "path": "skills/implement",
+      "description": "RED-GREEN-REFACTOR 사이클 기반 TDD 구현. 고품질 코드를 작성합니다."
     },
     {
       "name": "review",
-      "path": "skills/review"
+      "path": "skills/review",
+      "description": "코드 품질, 보안, 성능 검증. 개발 결과물의 품질을 보증합니다."
     },
     {
       "name": "document",
-      "path": "skills/document"
+      "path": "skills/document",
+      "description": "개발 과정 문서화 및 지식 관리. 개발 결과를 정리하고 공유합니다."
     }
   ],
   "agents": [
     {
       "name": "architect",
       "path": "agents/architect.md",
-      "description": "소프트웨어 아키텍처 설계 전문가"
+      "description": "요구사항 분석 및 기술 설계 전문가. 프로젝트의 청사진을 작성하고 구현 전략을 수립합니다."
     },
     {
       "name": "engineer",
       "path": "agents/engineer.md",
-      "description": "소프트웨어 엔지니어"
+      "description": "TDD 기반 소프트웨어 구현 전문가. 설계 문서를 기반으로 고품질 코드를 작성합니다."
     },
     {
       "name": "guardian",
       "path": "agents/guardian.md",
-      "description": "코드 리뷰 전문가"
+      "description": "코드 품질 및 보안 검증 전문가. 구현된 코드의 기능성, 품질, 보안, 성능을 검증합니다."
     },
     {
       "name": "librarian",
       "path": "agents/librarian.md",
-      "description": "기술 문서 작성 전문가"
+      "description": "기술 문서화 및 지식 관리 전문가. 개발 과정을 기록하고 API 문서, 가이드, ADR을 작성합니다."
     }
   ],
   "hooks": {

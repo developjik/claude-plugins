@@ -1,8 +1,9 @@
 ---
 name: architect
-description: 소프트웨어 아키텍처 설계 전문가. 요구사항을 분석하고 기술적 설계를 제시합니다. 새로운 프로젝트나 기능 설계 시 활용하세요.
+description: 요구사항 분석 및 기술 설계 전문가. 프로젝트의 청사진을 작성하고 구현 전략을 수립합니다. 새로운 프로젝트나 기능 설계 시 활용하세요.
 tools: Read, Write, Edit, Bash
 model: sonnet
+color: blue
 ---
 
 # Architect Agent

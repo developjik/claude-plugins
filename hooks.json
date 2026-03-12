@@ -3,13 +3,37 @@
     "SessionStart": [
       {
         "type": "command",
-        "command": "hooks/setup.sh"
+        "command": "hooks/setup.sh",
+        "description": "세션 시작 시 PDCA 워크플로우 환경 초기화"
       }
     ],
     "UserPromptSubmit": [
       {
         "type": "command",
-        "command": "hooks/validate-input.sh"
+        "command": "hooks/validate-input.sh",
+        "description": "사용자 입력 검증 및 컨텍스트 확인"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/pre-bash.sh",
+            "description": "위험한 Bash 명령어 차단 (rm -rf 등)"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/pre-edit.sh",
+            "description": "파일 편집 전 백업 생성"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -18,7 +42,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/post-edit.sh"
+            "command": "hooks/post-edit.sh",
+            "description": "파일 편집 후 린트 검사 및 변경 사항 추적"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "hooks/post-bash.sh",
+            "description": "Bash 명령어 실행 후 결과 로깅"
           }
         ]
       }
@@ -29,7 +64,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-architect-start.sh"
+            "command": "hooks/on-architect-start.sh",
+            "description": "Architect 에이전트 시작 시 설계 컨텍스트 로드"
           }
         ]
       },
@@ -38,7 +74,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-engineer-start.sh"
+            "command": "hooks/on-engineer-start.sh",
+            "description": "Engineer 에이전트 시작 시 구현 환경 준비"
           }
         ]
       },
@@ -47,7 +84,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-guardian-start.sh"
+            "command": "hooks/on-guardian-start.sh",
+            "description": "Guardian 에이전트 시작 시 리뷰 기준 로드"
           }
         ]
       },
@@ -56,7 +94,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-librarian-start.sh"
+            "command": "hooks/on-librarian-start.sh",
+            "description": "Librarian 에이전트 시작 시 문서 템플릿 로드"
           }
         ]
       }
@@ -67,7 +106,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-architect-stop.sh"
+            "command": "hooks/on-architect-stop.sh",
+            "description": "Architect 에이전트 종료 시 설계 결과 저장"
           }
         ]
       },
@@ -76,7 +116,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-engineer-stop.sh"
+            "command": "hooks/on-engineer-stop.sh",
+            "description": "Engineer 에이전트 종료 시 구현 결과 커밋"
           }
         ]
       },
@@ -85,7 +126,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-guardian-stop.sh"
+            "command": "hooks/on-guardian-stop.sh",
+            "description": "Guardian 에이전트 종료 시 리뷰 결과 저장"
           }
         ]
       },
@@ -94,7 +136,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-librarian-stop.sh"
+            "command": "hooks/on-librarian-stop.sh",
+            "description": "Librarian 에이전트 종료 시 문서 최종화"
           }
         ]
       }
@@ -102,7 +145,8 @@
     "SessionEnd": [
       {
         "type": "command",
-        "command": "hooks/cleanup.sh"
+        "command": "hooks/cleanup.sh",
+        "description": "세션 종료 시 임시 파일 정리 및 최종 상태 저장"
       }
     ]
   }
