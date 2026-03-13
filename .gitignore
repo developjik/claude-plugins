@@ -1,4 +1,5 @@
 # Runtime
+.harness/
 logs/
 state/
 *.log

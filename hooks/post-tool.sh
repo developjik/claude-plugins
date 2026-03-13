@@ -3,23 +3,24 @@
 # 파일 변경 추적, Bash 실행 로깅
 set -euo pipefail
 
-HARNESS_DIR="${HOME}/.harness-engineering"
-LOG_DIR="${HARNESS_DIR}/logs"
-STATE_DIR="${HARNESS_DIR}/state"
-mkdir -p "$LOG_DIR" "$STATE_DIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/common.sh
+source "${SCRIPT_DIR}/common.sh"
 
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 PAYLOAD=$(cat)
+HARNESS_DIR=$(harness_runtime_dir "$PAYLOAD")
+LOG_DIR="${HARNESS_DIR}/logs"
+STATE_DIR="${HARNESS_DIR}/state"
 
-TOOL_NAME=""
-if command -v jq &>/dev/null; then
-  TOOL_NAME=$(echo "$PAYLOAD" | jq -r '.tool_name // .tool // ""' 2>/dev/null || echo "")
-fi
+mkdir -p "$LOG_DIR" "$STATE_DIR"
+
+TOOL_NAME=$(json_query "$PAYLOAD" '.tool_name // .tool // ""')
 
 case "$TOOL_NAME" in
   Write|Edit|write|edit)
     # 파일 변경 추적
-    FILE_PATH=$(echo "$PAYLOAD" | jq -r '.input.file_path // .input.path // ""' 2>/dev/null || echo "")
+    FILE_PATH=$(json_query "$PAYLOAD" '.tool_input.file_path // .tool_input.path // .input.file_path // .input.path // ""')
     if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
       HASH=""
       if command -v md5sum &>/dev/null; then

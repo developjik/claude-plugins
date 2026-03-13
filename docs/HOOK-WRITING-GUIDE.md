@@ -42,12 +42,15 @@
 
 ```json
 {
+  "cwd": "/path/to/project",
   "tool_name": "Bash",
-  "input": {
+  "tool_input": {
     "command": "npm test"
   }
 }
 ```
+
+Claude Code는 훅 실행 시 프로젝트 루트를 나타내는 `CLAUDE_PROJECT_DIR` 환경변수도 제공합니다. 이 저장소의 훅은 `CLAUDE_PROJECT_DIR`를 우선 사용하고, 없으면 payload의 `cwd`를 fallback으로 사용합니다. Git 저장소에서는 세션 시작 시 `.harness/`를 `.git/info/exclude`에 자동 등록해 런타임 파일이 커밋 대상에 섞이지 않게 합니다.
 
 ## 훅 스크립트 템플릿
 
@@ -56,6 +59,8 @@
 set -euo pipefail
 
 PAYLOAD=$(cat)   # stdin에서 JSON 읽기
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+HARNESS_DIR="${PROJECT_ROOT}/.harness"
 
 # jq로 필드 추출
 TOOL_NAME=$(echo "$PAYLOAD" | jq -r '.tool_name // ""')
@@ -80,6 +85,8 @@ echo '{"decision":"block","reason":"차단 사유"}'
 2. **jq 없이도 동작**하도록 fallback을 넣으세요
 3. **민감 정보를 로그에 남기지** 마세요
 4. **빠르게 실행**되어야 합니다 — 사용자 대기 시간이 늘어남
+5. **프로젝트 로컬 상태 디렉토리**가 필요하면 `CLAUDE_PROJECT_DIR/.harness` 또는 payload의 `cwd`를 사용하세요
+6. **자동 ignore는 `.git/info/exclude` 우선**으로 처리하면 팀 공용 `.gitignore`를 오염시키지 않을 수 있습니다
 
 ## 수동 검증법
 
@@ -88,9 +95,9 @@ echo '{"decision":"block","reason":"차단 사유"}'
 cat hooks.json | jq .
 
 # 개별 훅 스크립트 테스트
-echo '{"tool_name":"Bash","input":{"command":"ls"}}' | bash hooks/pre-tool.sh
+echo '{"cwd":"'"$(pwd)"'","tool_name":"Bash","tool_input":{"command":"ls"}}' | bash hooks/pre-tool.sh
 
 # 훅 로그 확인
-cat ~/.harness-engineering/logs/session.log
-tail -f ~/.harness-engineering/logs/security.log
+cat .harness/logs/session.log
+tail -f .harness/logs/security.log
 ```
