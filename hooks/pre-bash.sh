@@ -10,6 +10,16 @@ LOG_DIR="${HOME}/.harness-engineering/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/pre-bash-$(date +%Y%m%d_%H%M%S).log"
 
+extract_command_from_payload() {
+    local payload="$1"
+
+    if [ -z "$payload" ] || ! command -v jq &> /dev/null; then
+        return 1
+    fi
+
+    printf '%s' "$payload" | jq -r '.tool_input.command // .tool_input.cmd // .tool_input.commandLine // empty' 2>/dev/null
+}
+
 # 명령어 로깅
 log_command() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
@@ -58,11 +68,19 @@ check_permissions() {
 
 # 메인 로직
 main() {
-    # 환경 변수에서 명령어 가져오기
-    # Claude Code는 실행할 명령어를 환경 변수로 전달합니다
-    local command="${BASH_COMMAND:-}"
+    local payload command
+    payload="$(cat)"
+    command=""
+
+    # stdin JSON 페이로드를 기본 계약으로 사용하고, 이전 환경 변수 방식도 지원합니다.
+    command="$(extract_command_from_payload "$payload" || true)"
+
+    if [ -z "$command" ]; then
+        command="${BASH_COMMAND:-}"
+    fi
     
     if [ -z "$command" ]; then
+        log_command "No bash command found in payload or environment"
         return 0
     fi
     

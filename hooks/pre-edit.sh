@@ -19,6 +19,26 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
 }
 
+extract_files_from_payload() {
+    local payload="$1"
+
+    if [ -z "$payload" ] || ! command -v jq &> /dev/null; then
+        return 1
+    fi
+
+    printf '%s' "$payload" | jq -r '
+        [
+            .tool_input.path?,
+            .tool_input.file_path?,
+            .tool_input.filePath?,
+            (.tool_input.paths[]?),
+            (.tool_input.files[]?)
+        ]
+        | map(select(type == "string" and length > 0))
+        | .[]
+    ' 2>/dev/null
+}
+
 # 파일 백업 함수
 backup_file() {
     local file="$1"
@@ -45,20 +65,28 @@ backup_file() {
 
 # 메인 로직
 main() {
-    # 편집할 파일 목록 (환경 변수에서 가져오기)
-    # Claude Code는 편집할 파일을 환경 변수로 전달합니다
-    local files_to_edit="${EDITED_FILES:-}"
+    local payload files_to_edit
+    payload="$(cat)"
+    files_to_edit=""
+
+    # stdin JSON 페이로드를 기본 계약으로 사용하고, 이전 환경 변수 방식도 지원합니다.
+    files_to_edit="$(extract_files_from_payload "$payload" || true)"
+
+    if [ -z "$files_to_edit" ]; then
+        files_to_edit="${EDITED_FILES:-}"
+    fi
     
     if [ -z "$files_to_edit" ]; then
+        log_message "No editable files found in payload or environment"
         return 0
     fi
     
     # 각 파일에 대해 백업 생성
-    while IFS= read -r file; do
+    printf '%s\n' "$files_to_edit" | awk 'NF && !seen[$0]++' | while IFS= read -r file; do
         if [ -n "$file" ]; then
             backup_file "$file"
         fi
-    done <<< "$files_to_edit"
+    done
     
     log_message "Pre-edit backup completed"
     return 0

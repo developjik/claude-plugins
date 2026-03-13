@@ -23,6 +23,7 @@ Claude Code에서 PDCA(Plan, Do, Check, Act) 흐름으로 작업하도록 돕는
 harness-engineering/
 ├── .claude-plugin/
 │   └── plugin.json
+├── .gitignore
 ├── agents/
 │   ├── architect.md
 │   ├── engineer.md
@@ -44,12 +45,8 @@ harness-engineering/
 │   ├── on-*-stop.sh
 │   └── cleanup.sh
 ├── docs/
-│   ├── IMPLEMENTATION_GUIDE.md
 │   ├── PDCA_WORKFLOW_DIAGRAM.md
-│   ├── PROJECT_ANALYSIS.md
 │   └── REFERENCES.md
-├── CLAUDE_CODE_PLUGIN_GUIDE.md
-├── DESIGN.md
 ├── hooks.json
 └── README.md
 ```
@@ -88,6 +85,8 @@ Claude Code에서 플러그인을 설치하고 활성화합니다.
 
 중요한 점은 훅이 PDCA 단계를 자동으로 전환하지는 않는다는 것입니다. 현재 구현은 "기록, 백업, 가드, 변경 추적" 중심입니다.
 
+훅 입력 계약은 `stdin`으로 전달되는 JSON 페이로드를 기본으로 사용합니다. `pre-bash.sh`, `pre-edit.sh`는 이전 환경과의 호환을 위해 각각 `BASH_COMMAND`, `EDITED_FILES` 환경 변수도 보조적으로 읽습니다.
+
 ## 요구 사항
 
 다음 도구가 있으면 훅을 무리 없이 사용할 수 있습니다.
@@ -101,15 +100,11 @@ Claude Code에서 플러그인을 설치하고 활성화합니다.
 
 저장소 루트와 사용자 홈 디렉터리 두 곳에 런타임 파일이 생깁니다.
 
-- 워크스페이스 기준: `logs/session.log`, `state/current-agent.txt`
+- 워크스페이스 기준: `logs/session.log`, `state/current-agent.txt` (`.gitignore`로 제외)
 - 사용자 홈 기준: `~/.harness-engineering/backups/`, `~/.harness-engineering/logs/`, `~/.harness-engineering/state/changes.txt`
 
 ## 문서
 
-- [CLAUDE_CODE_PLUGIN_GUIDE.md](./CLAUDE_CODE_PLUGIN_GUIDE.md): Claude Code에서 실제로 사용하는 방법
-- [docs/IMPLEMENTATION_GUIDE.md](./docs/IMPLEMENTATION_GUIDE.md): 플러그인 구조를 수정·확장하는 방법
-- [docs/PROJECT_ANALYSIS.md](./docs/PROJECT_ANALYSIS.md): 2026-03-12 기준 저장소 분석 결과
-- [DESIGN.md](./DESIGN.md): 목표 구조와 현재 구현 범위
 - [docs/PDCA_WORKFLOW_DIAGRAM.md](./docs/PDCA_WORKFLOW_DIAGRAM.md): PDCA 개념도
 - [docs/REFERENCES.md](./docs/REFERENCES.md): 외부 참고 자료
 

@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/pre-bash.sh",
+            "command": "bash hooks/pre-bash.sh",
             "description": "위험한 Bash 명령어 차단"
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/pre-edit.sh",
+            "command": "bash hooks/pre-edit.sh",
             "description": "파일 편집 전 백업 생성"
           }
         ]
