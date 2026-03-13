@@ -3,15 +3,8 @@
     "SessionStart": [
       {
         "type": "command",
-        "command": "hooks/setup.sh",
-        "description": "세션 시작 로그 기록 및 Git/프로젝트 상태 감지"
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "type": "command",
-        "command": "hooks/validate-input.sh",
-        "description": "사용자 입력 길이 기록"
+        "command": "bash hooks/session-start.sh",
+        "description": "세션 시작: 디렉토리 초기화, Git 상태 감지, 로그 기록"
       }
     ],
     "PreToolUse": [
@@ -20,8 +13,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash hooks/pre-bash.sh",
-            "description": "위험한 Bash 명령어 차단"
+            "command": "bash hooks/pre-tool.sh",
+            "description": "위험한 Bash 명령어 차단 (rm -rf, sudo 등)"
           }
         ]
       },
@@ -30,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash hooks/pre-edit.sh",
+            "command": "bash hooks/pre-tool.sh",
             "description": "파일 편집 전 백업 생성"
           }
         ]
@@ -42,8 +35,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/post-edit.sh",
-            "description": "파일 편집 후 변경 추적 및 선택적 린트 실행"
+            "command": "bash hooks/post-tool.sh",
+            "description": "파일 변경 추적, 해시 기록"
           }
         ]
       },
@@ -52,92 +45,32 @@
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/post-bash.sh",
-            "description": "Bash 명령어 실행 페이로드 로깅"
+            "command": "bash hooks/post-tool.sh",
+            "description": "Bash 실행 로깅"
           }
         ]
       }
     ],
     "SubagentStart": [
       {
-        "matcher": "architect",
+        "matcher": "strategist|architect|engineer|guardian|librarian|debugger",
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-architect-start.sh",
-            "description": "Architect 시작 시 현재 에이전트 상태와 PLAN 단계 기록"
-          }
-        ]
-      },
-      {
-        "matcher": "engineer",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "hooks/on-engineer-start.sh",
-            "description": "Engineer 시작 시 현재 에이전트 상태와 DO 단계 기록"
-          }
-        ]
-      },
-      {
-        "matcher": "guardian",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "hooks/on-guardian-start.sh",
-            "description": "Guardian 시작 시 현재 에이전트 상태와 CHECK 단계 기록"
-          }
-        ]
-      },
-      {
-        "matcher": "librarian",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "hooks/on-librarian-start.sh",
-            "description": "Librarian 시작 시 현재 에이전트 상태와 ACT 단계 기록"
+            "command": "bash hooks/on-agent-start.sh",
+            "description": "에이전트 전환 시 PDCA 단계 추적, 상태 기록"
           }
         ]
       }
     ],
     "SubagentStop": [
       {
-        "matcher": "architect",
+        "matcher": "strategist|architect|engineer|guardian|librarian|debugger",
         "hooks": [
           {
             "type": "command",
-            "command": "hooks/on-architect-stop.sh",
-            "description": "Architect 종료 로그 기록"
-          }
-        ]
-      },
-      {
-        "matcher": "engineer",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "hooks/on-engineer-stop.sh",
-            "description": "Engineer 종료 로그 기록"
-          }
-        ]
-      },
-      {
-        "matcher": "guardian",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "hooks/on-guardian-stop.sh",
-            "description": "Guardian 종료 로그 기록"
-          }
-        ]
-      },
-      {
-        "matcher": "librarian",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "hooks/on-librarian-stop.sh",
-            "description": "Librarian 종료 로그 기록"
+            "command": "bash hooks/on-agent-stop.sh",
+            "description": "에이전트 종료 로그 기록"
           }
         ]
       }
@@ -145,8 +78,8 @@
     "SessionEnd": [
       {
         "type": "command",
-        "command": "hooks/cleanup.sh",
-        "description": "세션 종료 로그 기록"
+        "command": "bash hooks/session-end.sh",
+        "description": "세션 종료: 로그 기록, 상태 정리"
       }
     ]
   }
