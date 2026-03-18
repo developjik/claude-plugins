@@ -27,7 +27,8 @@ case "$AGENT_NAME" in
   engineer)    PHASE="do" ;;
   guardian)    PHASE="check" ;;
   librarian)   PHASE="wrapup" ;;
-  debugger)    PHASE="debug" ;;
+        debugger)    PHASE="debug" ;;
+        grill-me)    PHASE="grill-me" ;;
   *)           PHASE="unknown" ;;
 esac
 

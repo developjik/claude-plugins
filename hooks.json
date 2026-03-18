@@ -53,7 +53,7 @@
     ],
     "SubagentStart": [
       {
-        "matcher": "strategist|architect|engineer|guardian|librarian|debugger",
+        "matcher": "strategist|architect|engineer|guardian|librarian|debugger|grill-me",
         "hooks": [
           {
             "type": "command",
@@ -65,7 +65,7 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "strategist|architect|engineer|guardian|librarian|debugger",
+        "matcher": "strategist|architect|engineer|guardian|librarian|debugger|grill-me",
         "hooks": [
           {
             "type": "command",

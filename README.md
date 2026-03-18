@@ -7,7 +7,7 @@
 ## 한눈에 보기
 
 - **6개 에이전트**: `strategist`, `architect`, `engineer`, `guardian`, `librarian`, `debugger`
-- **8개 스킬**: `plan`, `design`, `implement`, `check`, `wrapup`, `harness`, `debug`, `fullrun`
+- **9개 스킬**: `plan`, `design`, `implement`, `check`, `wrapup`, `harness`, `debug`, `fullrun`, `grill-me`
 - **훅 자동화**: 위험 명령 차단, 파일 백업, 변경 추적, PDCA 단계 자동 추적
 - **런타임 저장소**: 실행 프로젝트의 `.harness/` 사용, Git 저장소라면 `.git/info/exclude`에 자동 등록
 - **PDCA 5단계**: Check에서 불일치 시 자동 Iterate (최대 10회)
@@ -94,7 +94,8 @@ harness-engineering/
 │   ├── wrapup/SKILL.md
 │   ├── harness/SKILL.md
 │   ├── debug/SKILL.md
-│   └── fullrun/SKILL.md
+│   ├── fullrun/SKILL.md
+│   └── grill-me/SKILL.md
 ├── hooks/                          # 훅 스크립트 (6개)
 ├── hooks.json                      # 훅 설정
 ├── scripts/                        # 검증 스크립트
