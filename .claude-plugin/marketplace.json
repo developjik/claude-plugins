@@ -10,7 +10,7 @@
       "name": "harness-engineering",
       "description": "확장 PDCA(Plan→Design→Do→Check→Wrap-up) 기반 AI 소프트웨어 개발 자동화 플러그인. 6개 전문 에이전트와 9개 실행 스킬로 체계적인 개발 워크플로우를 제공합니다.",
       "category": "development",
-      "source": "."
+      "source": "./"
     }
   ]
 }
