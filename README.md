@@ -98,8 +98,17 @@ harness-engineering/
 │   ├── debug/SKILL.md
 │   ├── fullrun/SKILL.md
 │   └── grill-me/SKILL.md
-├── hooks/                          # 훅 스크립트 (6개)
-├── hooks.json                      # 훅 설정
+├── hooks/                          # 훅 시스템
+│   ├── hooks.json                  # 훅 설정 (이벤트 라우팅)
+│   ├── common.sh                   # 공통 함수
+│   ├── session-start.sh            # 세션 시작
+│   ├── session-end.sh              # 세션 종료
+│   ├── pre-tool.sh                 # 도구 실행 전
+│   ├── post-tool.sh                # 도구 실행 후
+│   ├── on-agent-start.sh           # 에이전트 시작
+│   ├── on-agent-stop.sh            # 에이전트 종료
+│   ├── lib/                        # 라이브러리 모듈
+│   └── __tests__/                  # 훅 테스트
 ├── scripts/                        # 검증 스크립트
 │   └── validate.sh
 ├── docs/                           # 문서
@@ -112,8 +121,17 @@ harness-engineering/
 │   │   ├── clarify.md
 │   │   ├── plan.md
 │   │   ├── design.md
-│   │   └── wrapup.md
-│   └── specs/                      # 실행 시 생성되는 feature 산출물 저장소
+│   │   ├── wrapup.md
+│   │   ├── automation-config.md
+│   │   └── context/                # 컨텍스트 템플릿
+│   ├── specs/                      # 실행 시 생성되는 feature 산출물 저장소
+│   ├── QUICKSTART.md               # 빠른 시작 가이드
+│   └── WAVE-SYSTEM.md              # Wave 실행 시스템
+├── tasks/                          # 태스크 관리
+├── .harness/                       # 런타임 상태 (실행 프로젝트에 생성)
+│   ├── logs/                       # 세션/보안 로그
+│   ├── state/                      # PDCA 단계, 에이전트 상태
+│   └── backups/                    # 파일 편집 전 백업
 └── README.md
 ```
 
@@ -129,7 +147,7 @@ bash -n hooks/*.sh
 
 # 훅 동작 샘플 테스트
 echo '{"cwd":"'"$(pwd)"'","tool_name":"Bash","tool_input":{"command":"ls"}}' | bash hooks/pre-tool.sh
-cat hooks.json | jq .
+cat hooks/hooks.json | jq .
 ```
 
 ## 자동화 레벨 (L0-L4)
@@ -190,6 +208,8 @@ cat .harness/logs/context-rot.jsonl
 ## 문서
 
 - [아키텍처](docs/ARCHITECTURE.md) — PDCA 흐름, 에이전트-스킬 관계, 훅 라이프사이클
+- [프로젝트 분석](docs/PROJECT-ANALYSIS.md) — 시스템 구조 ASCII 다이어그램
+- [빠른 시작](docs/QUICKSTART.md) — 5분 만에 시작하기
 - [산출물 규약](docs/ARTIFACT-CONVENTION.md) — `docs/specs/<feature-slug>/` 기반 SSOT 규칙
 - [스킬 작성 가이드](docs/SKILL-WRITING-GUIDE.md) — 커스텀 스킬 만들기
 - [에이전트 작성 가이드](docs/AGENT-WRITING-GUIDE.md) — 커스텀 에이전트 만들기

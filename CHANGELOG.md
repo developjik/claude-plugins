@@ -15,6 +15,101 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - 자동화 레벨(L0-L4)에 따른 질문 깊이 조절
   - `docs/specs/<feature-slug>/clarify.md` 산출물 생성
 - **Clarify Template**: `docs/templates/clarify.md` 템플릿 추가
+- **Wave Execution System**: 독립 태스크 병렬 실행 시스템
+  - `docs/WAVE-SYSTEM.md`: Wave 실행 가이드
+  - `hooks/lib/wave-executor.sh`: Wave 실행 라이브러리
+  - `tasks/` 디렉토리: Atomic Task 저장소
+  - waves.yaml 형식: Wave 정의 포맷
+  - 의존성 그래프 기반 병렬 실행
+  - 성능 향상: 최대 60% 시간 단축
+
+### Changed
+- `skills/plan/SKILL.md`: clarify.md 참조 로직 추가
+  - clarify.md 존재 시 자동 로드하여 Plan 작성에 활용
+  - clarify.md 없을 시 실행 여부 확인
+- `skills/fullrun/SKILL.md`: Clarify 단계 추가 (5단계 → 6단계)
+  - Clarify → Plan → Design → Do → Check → Wrap-up
+- `skills/harness/SKILL.md`: clarify 명령어 추가
+  - `/harness clarify <기능 설명>` 진입점 추가
+  - PDCA 흐름에 Clarify 단계 추가
+- `skills/implement/SKILL.md`: Wave 실행 옵션 추가
+  - `--waves`: Wave 병렬 실행 모드
+  - `--wave N`: 특정 Wave만 실행
+  - `--dry-run`: 실행 계획만 확인
+
+### Improved (Phase 1 Quick Wins)
+- **common.sh 모듈화**: 700줄 파일을 5개 모듈로 분리
+  - `hooks/lib/json-utils.sh`: JSON 파싱 유틸리티
+  - `hooks/lib/context-rot.sh`: Context Rot 감지 및 관리
+  - `hooks/lib/automation-level.sh`: 자동화 레벨 (L0-L4)
+  - `hooks/lib/feature-registry.sh`: 기능 레지스트리 관리
+  - `hooks/lib/logging.sh`: 구조화된 로깅 (JSONL)
+- **보안 필터링 강화**: 화이트리스트 + 블랙리스트 이중 검증
+  - 30개 위험 패턴 블랙리스트 추가
+  - 15개 의심 패턴 로깅
+  - 10개 안전 명령어 화이트리스트
+- **구조화된 로깅**: JSONL 형식 + 트레이스 ID
+  - `generate_trace_id()`: 세션 추적 ID 생성
+  - `mask_sensitive_data()`: 민감 정보 마스킹
+  - `log_event()`: JSONL 로그 기록
+- **테스트 프레임워크**: BATS 스타일 단위 테스트 추가
+  - `hooks/__tests__/common.test.sh`: 34개 테스트 케이스
+
+### Improved (Phase 2 Quick Wins)
+- **Quick Start 가이드**: `docs/QUICKSTART.md` 추가
+  - 5분 안에 핵심 워크플로우 체험
+  - `/fullrun` 예제
+  - 자동화 레벨 설명
+- **validate.sh 확장**: 8단계 검증
+  - Plugin Manifest 검증
+  - Hooks 문법 검사
+  - Skills frontmatter 검증
+  - Agents 검증
+  - Templates 확인
+  - 단위 테스트 실행
+  - Claude Plugin 검증
+  - 소크라테스식 질문으로 모호성 해소
+  - 요청 유형 분류 및 모호성 점수 산정
+  - 대안 탐색 (2-3개 접근 방식 비교)
+  - Gray Areas 식별 (Visual/API/Content)
+  - 자동화 레벨(L0-L4)에 따른 질문 깊이 조절
+  - `docs/specs/<feature-slug>/clarify.md` 산출물 생성
+- **Clarify Template**: `docs/templates/clarify.md` 템플릿 추가
+
+### Changed
+- `skills/plan/SKILL.md`: clarify.md 참조 로직 추가
+  - clarify.md 존재 시 자동 로드하여 Plan 작성에 활용
+  - clarify.md 없을 시 실행 여부 확인
+- `skills/fullrun/SKILL.md`: Clarify 단계 추가 (5단계 → 6단계)
+  - Clarify → Plan → Design → Do → Check → Wrap-up
+- `skills/harness/SKILL.md`: clarify 명령어 추가
+  - `/harness clarify <기능 설명>` 진입점 추가
+  - PDCA 흐름에 Clarify 단계 추가
+
+### Improved (Phase 1 Quick Wins)
+- **common.sh 모듈화**: 700줄 파일을 5개 모듈로 분리
+  - `hooks/lib/json-utils.sh`: JSON 파싱 유틸리티
+  - `hooks/lib/context-rot.sh`: Context Rot 감지 및 관리
+  - `hooks/lib/automation-level.sh`: 자동화 레벨 (L0-L4)
+  - `hooks/lib/feature-registry.sh`: 기능 레지스트리 관리
+  - `hooks/lib/logging.sh`: 구조화된 로깅 (JSONL)
+- **보안 필터링 강화**: 화이트리스트 + 블랙리스트 이중 검증
+  - 30개 위험 패턴 블랙리스트 추가
+  - 15개 의심 패턴 로깅
+  - 10개 안전 명령어 화이트리스트
+- **구조화된 로깅**: JSONL 형식 + 트레이스 ID
+  - `generate_trace_id()`: 세션 추적 ID 생성
+  - `mask_sensitive_data()`: 민감 정보 마스킹
+  - `log_event()`: JSONL 로그 기록
+- **테스트 프레임워크**: BATS 스타일 단위 테스트 추가
+  - `hooks/__tests__/common.test.sh`: 33개 테스트 케이스
+  - 소크라테스식 질문으로 모호성 해소
+  - 요청 유형 분류 및 모호성 점수 산정
+  - 대안 탐색 (2-3개 접근 방식 비교)
+  - Gray Areas 식별 (Visual/API/Content)
+  - 자동화 레벨(L0-L4)에 따른 질문 깊이 조절
+  - `docs/specs/<feature-slug>/clarify.md` 산출물 생성
+- **Clarify Template**: `docs/templates/clarify.md` 템플릿 추가
 
 ### Changed
 - `skills/plan/SKILL.md`: clarify.md 참조 로직 추가

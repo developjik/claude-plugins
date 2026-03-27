@@ -8,6 +8,7 @@ description: |
 user-invocable: true
 argument-hint: <기능명 또는 Plan 문서 경로>
 allowed-tools: Read, Grep, Glob, Bash
+requires: plan
 ---
 
 # Design Skill — PDCA 2단계

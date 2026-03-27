@@ -92,7 +92,7 @@ echo '{"decision":"block","reason":"차단 사유"}'
 
 ```bash
 # hooks.json 유효성 검사
-cat hooks.json | jq .
+cat hooks/hooks.json | jq .
 
 # 개별 훅 스크립트 테스트
 echo '{"cwd":"'"$(pwd)"'","tool_name":"Bash","tool_input":{"command":"ls"}}' | bash hooks/pre-tool.sh
@@ -100,4 +100,44 @@ echo '{"cwd":"'"$(pwd)"'","tool_name":"Bash","tool_input":{"command":"ls"}}' | b
 # 훅 로그 확인
 cat .harness/logs/session.log
 tail -f .harness/logs/security.log
+```
+
+## 라이브러리 모듈 (hooks/lib/)
+
+훅 스크립트에서 공통으로 사용하는 모듈들입니다:
+
+| 모듈 | 용도 |
+|:-----|:-----|
+| `json-utils.sh` | JSON 파싱, jq fallback |
+| `logging.sh` | 로그 기록 유틸리티 |
+| `context-rot.sh` | Context Rot 점수 계산 |
+| `automation-level.sh` | 자동화 레벨 판단 |
+| `feature-registry.sh` | Feature Slug 관리 |
+| `wave-executor.sh` | Wave 실행 시스템 |
+
+### 모듈 사용 예시
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 모듈 로드
+source "${CLAUDE_PLUGIN_ROOT}/hooks/lib/logging.sh"
+source "${CLAUDE_PLUGIN_ROOT}/hooks/lib/json-utils.sh"
+
+# 로그 기록
+log_info "메시지"
+
+# JSON 파싱 (jq 없어도 동작)
+PAYLOAD=$(cat)
+TOOL_NAME=$(json_get "$PAYLOAD" '.tool_name')
+```
+
+## 테스트 (hooks/__tests__/)
+
+훅 모듈에 대한 단위 테스트가 있습니다:
+
+```bash
+# 테스트 실행
+bash hooks/__tests__/common.test.sh
 ```

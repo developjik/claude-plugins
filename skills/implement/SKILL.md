@@ -8,6 +8,7 @@ description: |
 user-invocable: true
 argument-hint: <기능명 또는 Design 문서 경로>
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+requires: design
 ---
 
 # Implement Skill — PDCA 3단계 (Do)
@@ -21,9 +22,18 @@ Design 문서를 기반으로 **TDD 사이클**로 코드를 구현합니다.
 
 ```bash
 FEATURE_SLUG=$(echo "$ARGUMENTS" | awk \'{print $1}\')
-WORKTREE_OUTPUT=$(/home/ubuntu/harness-engineering/.harness/hooks/setup_worktree.sh "$FEATURE_SLUG")
-WORKTREE_PATH=$(echo "$WORKTREE_OUTPUT" | grep "To work on this feature, navigate to:" | awk \'{print $NF}\')
-cd "$WORKTREE_PATH"
+
+# Worktree 스크립트 경로는 플러그인 디렉토리에서 자동 탐색
+PLUGIN_DIR="${PLUGIN_DIR:-$(dirname "$0")/..}"
+WORKTREE_SCRIPT="${PLUGIN_DIR}/hooks/lib/worktree.sh"
+
+if [[ -x "$WORKTREE_SCRIPT" ]]; then
+  WORKTREE_OUTPUT=$("$WORKTREE_SCRIPT" setup "$FEATURE_SLUG")
+  WORKTREE_PATH=$(echo "$WORKTREE_OUTPUT" | grep "Worktree created at:" | awk \'{print $NF}\')
+  if [[ -n "$WORKTREE_PATH" ]]; then
+    cd "$WORKTREE_PATH"
+  fi
+fi
 ```
 
 **주의**: Worktree 내에서 모든 Git 명령(add, commit 등)을 수행해야 합니다.

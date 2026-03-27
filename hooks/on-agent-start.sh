@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # on-agent-start.sh — 통합 SubagentStart 훅
-# 에이전트 전환 시 PDCA 단계 자동 추적 및 의존성 확인
+# 에이전트 전환 시 PDCA 단계 자동 추적, 의존성 확인, 스킬 체인 검증
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/common.sh
 source "${SCRIPT_DIR}/common.sh"
+# shellcheck source=hooks/lib/skill-chain.sh
+source "${SCRIPT_DIR}/lib/skill-chain.sh"
 
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 PAYLOAD=$(cat)
@@ -21,27 +23,60 @@ AGENT_NAME=$(json_query "$PAYLOAD" '.agent_name // .agent // ""')
 # 현재 에이전트 기록
 echo "$AGENT_NAME" > "${STATE_DIR}/current-agent.txt"
 
+# 현재 시간 기록 (결과 요약용)
+date +%s > "${STATE_DIR}/phase-start-time.txt" 2>/dev/null || true
+
 # 에이전트 → PDCA 단계 매핑
 case "$AGENT_NAME" in
-  strategist)  PHASE="plan" ;;
-  architect)   PHASE="design" ;;
-  engineer)    PHASE="do" ;;
-  guardian)    PHASE="check" ;;
-  librarian)   PHASE="wrapup" ;;
-        debugger)    PHASE="debug" ;;
-        grill-me)    PHASE="grill-me" ;;
-  *)           PHASE="unknown" ;;
+  strategist|harness-engineering:strategist)  PHASE="plan" ;;
+  architect|harness-engineering:architect)    PHASE="design" ;;
+  engineer|harness-engineering:engineer)      PHASE="do" ;;
+  guardian|harness-engineering:guardian)      PHASE="check" ;;
+  librarian|harness-engineering:librarian)    PHASE="wrapup" ;;
+  debugger|harness-engineering:debugger)      PHASE="debug" ;;
+  grill-me|harness-engineering:grill-me)      PHASE="grill-me" ;;
+  *)                                          PHASE="unknown" ;;
 esac
 
 echo "$PHASE" > "${STATE_DIR}/pdca-phase.txt"
 echo "[$TIMESTAMP] AGENT_START agent=$AGENT_NAME phase=$PHASE" >> "${LOG_DIR}/session.log"
 
 # ============================================================================
+# 스킬 체인 검증 (requires 필드 기반)
+# ============================================================================
+CURRENT_FEATURE=$(cat "${STATE_DIR}/current-feature.txt" 2>/dev/null || echo "")
+
+if [ -n "$CURRENT_FEATURE" ] && [ "$PHASE" != "unknown" ]; then
+  # 에이전트에서 스킬 이름 추론
+  SKILL_NAME=$(infer_skill_from_agent "$AGENT_NAME")
+
+  # 스킬 체인 검증 (strict_mode=false: 경고만)
+  CHAIN_RESULT=$(check_and_validate_chain "$SKILL_NAME" "$CURRENT_FEATURE" "false" 2>/dev/null || echo "")
+
+  if [ -n "$CHAIN_RESULT" ]; then
+    # 검증 결과 로깅
+    echo "[$TIMESTAMP] SKILL_CHAIN_CHECK skill=$SKILL_NAME feature=$CURRENT_FEATURE" >> "${LOG_DIR}/skill-chain.log"
+
+    # JSON 응답인 경우 파싱
+    if echo "$CHAIN_RESULT" | jq -e . >/dev/null 2>&1; then
+      DECISION=$(echo "$CHAIN_RESULT" | jq -r '.decision // "allow"')
+      WARNING=$(echo "$CHAIN_RESULT" | jq -r '.warning // ""')
+
+      if [ "$DECISION" == "block" ]; then
+        echo "[$TIMESTAMP] SKILL_CHAIN_BLOCKED skill=$SKILL_NAME" >> "${LOG_DIR}/skill-chain.log"
+        echo "$CHAIN_RESULT"
+        exit 0
+      elif [ -n "$WARNING" ] && [ "$WARNING" != "null" ]; then
+        echo "[WARNING] $WARNING" >&2
+      fi
+    fi
+  fi
+fi
+
+# ============================================================================
 # 의존성 확인 (engineer 에이전트가 implement 단계 진입 시)
 # ============================================================================
-if [ "$AGENT_NAME" = "engineer" ] && [ "$PHASE" = "do" ]; then
-  CURRENT_FEATURE=$(cat "${STATE_DIR}/current-feature.txt" 2>/dev/null || echo "")
-  
+if [[ "$AGENT_NAME" == *"engineer"* ]] && [ "$PHASE" = "do" ]; then
   if [ -n "$CURRENT_FEATURE" ]; then
     if ! check_dependency_conflicts "$PROJECT_ROOT" "$CURRENT_FEATURE"; then
       echo "[$TIMESTAMP] DEPENDENCY_CHECK FAILED for feature=$CURRENT_FEATURE" >> "${LOG_DIR}/dependencies.log"
@@ -92,17 +127,14 @@ if [ "$PREVIOUS_PHASE" != "idle" ] && [ "$PREVIOUS_PHASE" != "$PHASE" ] && [ "$P
         ;;
       if_uncertain)
         # 불확실한 경우 승인 요청 (선택적)
-        # 실제 구현에서는 더 정교한 불확실성 감지 로직 필요
         echo "[INFO] Phase transition: $PREVIOUS_PHASE → $PHASE (Level: $CURRENT_LEVEL)" >&2
         echo "[INFO] If uncertain about this transition, please review before proceeding" >&2
-        # 로그만 기록하고 자동 진행
         log_decision "$PROJECT_ROOT" "auto_proceed" \
           "\"transition\":\"$TRANSITION\",\"reason\":\"if_uncertain_auto_proceed\""
         ;;
       false)
         # 자동 진행
         echo "[INFO] Auto-proceed: $PREVIOUS_PHASE → $PHASE (Level: $CURRENT_LEVEL)" >&2
-        # 이전 승인 상태 초기화
         clear_pending_approval "$PROJECT_ROOT"
         ;;
     esac

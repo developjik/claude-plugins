@@ -74,3 +74,8 @@ echo "[$TIMESTAMP] CONTEXT_ROT_GRADE=$CONTEXT_ROT_GRADE" >> "$SESSION_LOG"
 
 # Context Rot 이벤트 로그
 log_context_rot_event "$PROJECT_ROOT" "session_start"
+
+# ============================================================================
+# Cleanup 핸들러 초기화
+# ============================================================================
+harness_init_cleanup

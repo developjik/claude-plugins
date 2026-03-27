@@ -46,7 +46,7 @@ $ARGUMENTS 를 받아서 수행할 작업 설명.
 | `description` | ○ | 설명. 자동 트리거에 사용됨 |
 | `user-invocable` | - | `true`면 `/name`으로 직접 호출 가능 |
 | `argument-hint` | - | 인자 힌트 (예: `<파일명>`) |
-| `allowed-tools` | - | 사용 가능한 도구 제한 |
+| `allowed-tools` | - | 사용 가능한 도구 제한 (예: `Read, Write, Edit, Bash, Grep, Glob, AskUserQuestion`) |
 | `disable-model-invocation` | - | `true`면 명시 호출만 가능 |
 | `context` | - | `fork`면 서브에이전트로 실행 |
 

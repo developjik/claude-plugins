@@ -1,12 +1,12 @@
 ---
 name: harness
 description: |
-  PDCA workflow orchestrator. Run any phase: clarify, plan, design, do, check, wrapup, or check status.
+  PDCA workflow orchestrator. Run any phase: clarify, plan, design, do, check, wrapup, status, or doctor.
   Triggers on: 'harness', 'workflow', 'pdca', 'pipeline', 'run phase', 'next step',
-  '워크플로우', '단계 실행', '다음 단계', '진행', 'status',
-  Error: 'which phase', 'run pdca', 'continue workflow', 'next stage'
+  '워크플로우', '단계 실행', '다음 단계', '진행', 'status', 'doctor', '진단',
+  Error: 'which phase', 'run pdca', 'continue workflow', 'next stage', 'diagnose'
 user-invocable: true
-argument-hint: <clarify|plan|design|do|check|wrapup|status> [기능명]
+argument-hint: <clarify|plan|design|do|check|wrapup|status|doctor> [기능명]
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, AskUserQuestion
 ---
 
@@ -17,6 +17,7 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, AskUserQuestion
 ## 사용법
 
 ```
+/harness doctor                       → 설치 진단 (의존성, 권한, 구성 확인)
 /harness clarify <기능 설명>         → Clarify 단계 실행 (요청 구체화)
 /harness plan <기능 설명>            → Plan 단계 실행 (slug 추출 및 문서 생성)
 /harness design <feature-slug>       → Design 단계 실행
@@ -35,6 +36,13 @@ Clarify → Plan → Design → Do → Check(+Iterate) → Wrap-up
 ### $ARGUMENTS 파싱
 
 첫 번째 인자를 액션으로 파싱합니다:
+
+**doctor**: 설치 후 진단을 실행합니다.
+- 플러그인 로드 상태 확인
+- 필수 의존성 확인 (jq, git, sed, tr)
+- 훅 스크립트 권한 확인
+- .harness/ 디렉토리 생성 테스트
+- 샘플 워크플로우 dry-run
 
 **clarify**: `/clarify <기능 설명>` 스킬을 호출합니다.
 - 사용자 요청 분석 및 구체화

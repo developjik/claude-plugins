@@ -9,6 +9,7 @@ description: |
 user-invocable: true
 argument-hint: <feature-slug>
 allowed-tools: Read, Grep, Glob, Bash
+requires: clarify
 ---
 
 # Plan Skill — PDCA 1단계

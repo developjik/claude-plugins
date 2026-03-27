@@ -5,9 +5,9 @@ description: |
   Triggers on: 'grill', 'interrogate', 'challenge', 'validate plan', 'review design', 'question',
   '심층 질문', '검증', '도전', '계획 검토', '설계 리뷰', '빠진 부분',
   Error: 'unclear plan', 'ambiguous design', 'missing details', 'validate assumptions'
-user-invocable: true
+user-invocable: false
 argument-hint: <feature-slug>
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, AskUserQuestion
 ---
 
 # Grill Me Skill — 계획/설계 검증

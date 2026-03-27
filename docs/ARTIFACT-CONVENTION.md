@@ -20,11 +20,13 @@
 ```
 docs/
 ├── templates/                   ← 산출물 템플릿 (SSOT)
+│   ├── clarify.md
 │   ├── plan.md
 │   ├── design.md
 │   └── wrapup.md
 └── specs/                       ← 실제 산출물 저장소
     └── user-auth/               ← 예: <feature-slug>
+        ├── clarify.md           ← /clarify 가 생성
         ├── plan.md              ← /plan 이 생성
         ├── design.md            ← /design 이 생성
         └── wrapup.md            ← /wrapup 이 생성
@@ -38,7 +40,8 @@ docs/
 
 | 스킬 | 읽는 곳 (Read) | 쓰는 곳 (Write) | 다음 단계 (Next) |
 |:-----|:--------------|:---------------|:---------------|
-| `plan` | `docs/templates/plan.md` | `docs/specs/<slug>/plan.md` | `/design <slug>` |
+| `clarify` | `docs/templates/clarify.md` | `docs/specs/<slug>/clarify.md` | `/plan <slug>` |
+| `plan` | `docs/specs/<slug>/clarify.md`<br>`docs/templates/plan.md` | `docs/specs/<slug>/plan.md` | `/design <slug>` |
 | `design` | `docs/specs/<slug>/plan.md`<br>`docs/templates/design.md` | `docs/specs/<slug>/design.md` | `/implement <slug>` |
 | `implement` | `docs/specs/<slug>/design.md` | (실제 코드 파일들) | `/check <slug>` |
 | `check` | `docs/specs/<slug>/plan.md`<br>`docs/specs/<slug>/design.md` | (파일 생성 안 함 - 자동 Iterate 수행) | `/wrapup <slug>` |

@@ -3,7 +3,7 @@
 Harness Engineering은 Claude Code 위에서 동작하는 **워크플로우 플러그인**입니다. 실행 로직의 중심은 일반 애플리케이션 코드가 아니라, 다음 세 계층의 조합에 있습니다.
 
 - **프롬프트 계층**: `skills/`, `agents/`
-- **운영 자동화 계층**: `hooks.json`, `hooks/`
+- **운영 자동화 계층**: `hooks/hooks.json`, `hooks/`
 - **산출물/상태 계층**: `docs/specs/`, `<project-root>/.harness/`
 
 ## 1. 시스템 개요
@@ -19,7 +19,7 @@ flowchart TB
     end
 
     subgraph Automation["운영 자동화 계층"]
-        HookConfig["hooks.json<br/>이벤트 라우팅"]
+        HookConfig["hooks/hooks.json<br/>이벤트 라우팅"]
         HookScripts["hooks/*.sh<br/>보안, 백업, 로깅, 상태 추적"]
         Templates["docs/templates/*.md<br/>산출물 템플릿"]
     end
@@ -85,7 +85,7 @@ flowchart TB
     subgraph Entrypoints["사용자 진입점"]
         Harness["/harness"]
         Fullrun["/fullrun"]
-        Direct["직접 호출<br/>/plan /design /implement /check /wrapup"]
+        Direct["직접 호출<br/>/clarify /plan /design /implement /check /wrapup"]
         DebugCmd["/debug"]
     end
 
@@ -97,6 +97,7 @@ flowchart TB
         CheckSkill["check"]
         WrapupSkill["wrapup"]
         DebugSkill["debug"]
+        GrillMeSkill["grill-me<br/>(자동 트리거만)"]
     end
 
     subgraph Agents["권장 에이전트"]
@@ -142,6 +143,7 @@ flowchart TB
 ### 해석
 
 - `/harness`는 단계별 진입점이고, `/fullrun`은 전체 PDCA 사이클 오케스트레이터입니다.
+- `/grill-me`는 plan이나 design 같은 산출물에 대해 철저한 검증 질문을 수행합니다 (자동 트리거만, 명시적 호출 불가).
 - 각 스킬은 특정 에이전트와 자연스럽게 짝을 이루지만, 구조적으로는 **느슨하게 결합**되어 있습니다.
 - 이 설계 덕분에 개별 단계 실행과 전체 자동 실행을 모두 지원할 수 있습니다.
 
@@ -196,8 +198,9 @@ sequenceDiagram
 |:-----|:-----|
 | `agents/*.md` | 역할별 사고 방식과 출력 기대치 정의 |
 | `skills/*/SKILL.md` | 사용자 명령별 실행 절차 정의 |
-| `hooks.json` | Claude Code 이벤트와 훅 스크립트 연결 |
+| `hooks/hooks.json` | Claude Code 이벤트와 훅 스크립트 연결 |
 | `hooks/*.sh` | 보안, 백업, 로깅, 상태 추적 자동화 |
+| `hooks/lib/*.sh` | 훅 라이브러리 모듈 (json-utils, logging 등) |
 | `docs/templates/*.md` | Plan, Design, Wrap-up 문서 골격 |
 | `docs/specs/<feature-slug>/` | 기능별 SSOT 산출물 저장소 |
 | `<project-root>/.harness/logs/` | 세션 로그, 보안 로그 |
