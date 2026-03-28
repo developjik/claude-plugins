@@ -23,6 +23,10 @@ if [[ -d "$LIB_DIR" ]]; then
   source "${LIB_DIR}/verification-classes.sh"
   source "${LIB_DIR}/subagent-spawner.sh"
   source "${LIB_DIR}/state-machine.sh"
+  source "${LIB_DIR}/review-engine.sh"
+  source "${LIB_DIR}/skill-evaluation.sh"
+  source "${LIB_DIR}/crash-recovery.sh"
+  source "${LIB_DIR}/browser-testing.sh"
 fi
 
 # ============================================================================
