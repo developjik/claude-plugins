@@ -169,7 +169,7 @@ test_generate_playwright_config() {
     content=$(cat "$config_file")
 
     if echo "$content" | grep -q "defineConfig" && \
-       echo "$content" | grep -q "playwright.config.ts"; then
+       echo "$content" | grep -q "@playwright/test"; then
       pass "test_generate_playwright_config"
     else
       fail "test_generate_playwright_config (missing content)"

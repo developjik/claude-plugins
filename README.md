@@ -11,6 +11,7 @@
 - **훅 자동화**: 위험 명령 차단, 파일 백업, 변경 추적, PDCA 단계 자동 추적
 - **P0 Foundation**: 다중 프레임워크 테스트 실행, 서브에이전트 스포닝, 상태 머신 엔진
 - **P1 Enhancement**: 2단계 리뷰, 스킬 평가, 크래시 복구, 브라우저 테스트
+- **P2 Advanced**: 해시 앵커 에디트(충돌 방지), 웨이브 실행(병렬 처리)
 - **런타임 저장소**: 실행 프로젝트의 `.harness/` 사용, Git 저장소라면 `.git/info/exclude`에 자동 등록
 - **PDCA 5단계**: Check에서 불일치 시 자동 Iterate (최대 10회)
 
@@ -204,6 +205,44 @@ run_browser_tests "$PROJECT_ROOT" --browser=chromium
 generate_html_report "$PROJECT_ROOT"
 ```
 
+### P2 Advanced
+
+#### 해시 앵커 에디트 (P2-1)
+
+파일 수정 시 해시 기반 충돌 방지를 제공합니다:
+
+```bash
+# 파일 등록
+register_file_hash "$PROJECT_ROOT" "src/app.js"
+
+# 무결성 검증
+verify_file_integrity "$PROJECT_ROOT" "src/app.js"
+
+# 편집 준비 (충돌 감지)
+prepare_edit "$PROJECT_ROOT" "src/app.js" "Add feature X"
+
+# 편집 완료
+finalize_edit "$PROJECT_ROOT" "$TXN_ID" "src/app.js"
+```
+
+#### 웨이브 실행 (P2-2)
+
+의존성 기반 병렬 태스크 실행을 지원합니다:
+
+```bash
+# 태스크 정렬 (위상 정렬)
+topological_sort '[{"id":"A"},{"id":"B","dependencies":["A"]}]'
+# → ["A", "B"]
+
+# 웨이브 그룹화
+group_tasks_into_waves '[...]'
+# → [["A","B"], ["C"], ["D"]]
+
+# 순환 의존성 감지
+detect_circular_dependencies '[...]'
+# → {"has_cycle": false}
+```
+
 ## 에이전트 (인지 모드)
 
 | 에이전트 | 역할 | 도구 |
@@ -248,8 +287,10 @@ harness-engineering/
 │   │   ├── review-engine.sh        # P1-1: 2단계 리뷰
 │   │   ├── skill-evaluation.sh     # P1-2: 스킬 평가
 │   │   ├── crash-recovery.sh       # P1-3: 크래시 복구
-│   │   └── browser-testing.sh      # P1-4: 브라우저 테스트
-│   └── __tests__/                  # 훅 테스트
+│   │   ├── browser-testing.sh      # P1-4: 브라우저 테스트
+│   │   ├── hash-anchored-edit.sh   # P2-1: 해시 앵커 에디트
+│   │   └── wave-executor.sh        # P2-2: 웨이브 실행
+│   └── __tests__/                  # 훅 테스트 (190+ tests)
 ├── scripts/                        # 검증 스크립트
 ├── docs/                           # 문서
 │   ├── ARCHITECTURE.md

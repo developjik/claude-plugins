@@ -372,6 +372,58 @@ cat .harness/state/context-rot-score
 
 ---
 
+## 고급 기능 (P2)
+
+### 해시 앵커 에디트
+
+파일 수정 시 해시 기반 충돌 방지를 제공합니다:
+
+```bash
+# 파일 등록
+register_file_hash "$PROJECT_ROOT" "src/app.js"
+
+# 무결성 검증
+verify_file_integrity "$PROJECT_ROOT" "src/app.js"
+
+# 편집 준비 (충돌 감지)
+prepare_edit "$PROJECT_ROOT" "src/app.js" "Add feature X"
+
+# 편집 완료
+finalize_edit "$PROJECT_ROOT" "$TXN_ID" "src/app.js"
+```
+
+**특징:**
+- SHA-256 해시 기반 무결성 검증
+- 외부 변경 감지 및 충돌 방지
+- 트랜잭션 기반 편집 추적
+- 자동 롤백 지원
+
+### 웨이브 실행
+
+의존성 기반 병렬 태스크 실행을 지원합니다:
+
+```bash
+# 태스크 위상 정렬
+topological_sort '[{"id":"A"},{"id":"B","dependencies":["A"]}]'
+# → ["A", "B"]
+
+# 웨이브 그룹화
+group_tasks_into_waves '[...]'
+# → [["A","B"], ["C"], ["D"]]
+
+# 순환 의존성 감지
+detect_circular_dependencies '[...]'
+# → {"has_cycle": false}
+```
+
+**특징:**
+- Kahn 알고리즘 기반 위상 정렬
+- 병렬 실행 가능한 태스크 그룹화
+- 순환 의존성 자동 감지
+- 최대 병렬도 계산
+
+---
+
 ## 플래그 참조
 
 ### /check 플래그
