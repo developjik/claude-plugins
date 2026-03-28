@@ -28,7 +28,7 @@ detect_stuck_state() {
   local max_minutes="${3:-$MAX_PHASE_DURATION_MINUTES}"
 
   local lib_dir
-  lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  lib_dir="$(cd "$(dirname "${BASH_SOURCE:-0}")" && pwd)"
 
   if ! declare -f get_state &>/dev/null; then
     if [[ -f "${lib_dir}/state-machine.sh" ]]; then
@@ -40,14 +40,18 @@ detect_stuck_state() {
 
   if [[ ! -f "$state_file" ]]; then
     echo '{"stuck": false, "reason": "no_state_file"}'
-    return 1
+    return 0
   fi
 
   local state iteration_count current_phase last_transition
   state=$(cat "$state_file")
   iteration_count=$(echo "$state" | jq -r '.iteration_count // 0')
   current_phase=$(echo "$state" | jq -r '.phase // "unknown"')
-  last_transition=$(echo "$state" | jq -r '.last_transition_at // "2000-01-01T00:00:00Z"')
+  # last_transition_at이 없으면 entered_at 사용, 둘 다 없으면 현재 시간
+  last_transition=$(echo "$state" | jq -r '.last_transition_at // .entered_at // ""')
+  if [[ -z "$last_transition" ]]; then
+    last_transition=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+  fi
 
   local now
   now=$(date +%s)
@@ -61,7 +65,14 @@ detect_stuck_state() {
   # Check 2: Timeout in current phase
   local last_ts last_epoch elapsed
   last_ts=$(echo "$last_transition" | sed 's/Z$//')
-  last_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$last_ts" +%s 2>/dev/null || echo 0)
+
+  # macOS와 Linux 모두 지원하는 날짜 파싱 (UTC 기준)
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS: TZ=UTC로 설정하여 UTC로 파싱
+    last_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "$last_ts" +%s 2>/dev/null || echo 0)
+  else
+    last_epoch=$(date -d "$last_ts" +%s 2>/dev/null || echo 0)
+  fi
 
   if [[ "$last_epoch" -gt 0 ]]; then
     elapsed=$(( (now - last_epoch) / 60 ))
@@ -107,8 +118,8 @@ detect_loop_pattern() {
   local patterns='[]'
   while IFS= read -r line; do
     local from to
-    from=$(echo "$line" | jq -r '.from // ""')
-    to=$(echo "$line" | jq -r '.to // ""')
+    from=$(echo "$line" | jq -r '.from // ""' 2>/dev/null || echo "")
+    to=$(echo "$line" | jq -r '.to // ""' 2>/dev/null || echo "")
 
     if [[ -n "$from" ]] && [[ -n "$to" ]]; then
       patterns=$(echo "$patterns" | jq ". + [\"$from:$to\"]")
@@ -323,7 +334,7 @@ recover_state() {
   local snapshot_id="${3:-}"
 
   local lib_dir
-  lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  lib_dir="$(cd "$(dirname "${BASH_SOURCE:-0}")" && pwd)"
 
   if ! declare -f transition_state &>/dev/null; then
     if [[ -f "${lib_dir}/state-machine.sh" ]]; then
@@ -476,7 +487,7 @@ create_recovery_checkpoint() {
   local description="${3:-Manual checkpoint}"
 
   local lib_dir
-  lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  lib_dir="$(cd "$(dirname "${BASH_SOURCE:-0}")" && pwd)"
 
   if ! declare -f create_snapshot &>/dev/null; then
     if [[ -f "${lib_dir}/state-machine.sh" ]]; then

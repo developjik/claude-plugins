@@ -103,6 +103,7 @@ init_state_machine() {
   "previous_phase": null,
   "status": "active",
   "entered_at": "$timestamp",
+  "last_transition_at": "$timestamp",
   "actor": null,
   "iteration_count": 0,
   "check_results": null,

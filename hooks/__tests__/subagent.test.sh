@@ -264,11 +264,14 @@ test_start_subagent_execution() {
   local status
   status=$(get_subagent_status "$subagent_id" "$TEST_DIR")
 
+  local started_at
+  started_at=$(echo "$status" | jq -r '.started_at // "null"')
+
   if assert_json_value "$status" ".status" "running" "Status should be running" && \
-     assert_json_value "$status" ".started_at" "null" "not" "Started at should be set"; then
+     [[ "$started_at" != "null" ]]; then
     pass "test_start_subagent_execution"
   else
-    fail "test_start_subagent_execution"
+    fail "test_start_subagent_execution (started_at=$started_at)"
   fi
 
   teardown
@@ -292,11 +295,14 @@ test_complete_subagent() {
   local status
   status=$(get_subagent_status "$subagent_id" "$TEST_DIR")
 
+  local duration_ms
+  duration_ms=$(echo "$status" | jq -r '.duration_ms // "null"')
+
   if assert_json_value "$status" ".status" "completed" "Status should be completed" && \
-     assert_json_value "$status" ".duration_ms" "null" "not" "Duration should be set"; then
+     [[ "$duration_ms" != "null" ]]; then
     pass "test_complete_subagent"
   else
-    fail "test_complete_subagent"
+    fail "test_complete_subagent (duration_ms=$duration_ms)"
   fi
 
   teardown

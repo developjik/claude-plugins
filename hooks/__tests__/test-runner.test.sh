@@ -264,9 +264,13 @@ test_check_test_success_rate_passing() {
 }
 
 test_check_test_success_rate_failing() {
-  local results='{"passed": 80, "failed": 20, "total": 100}'
+  local results='{"passed": 80, "failed": 20}'
 
-  if check_test_success_rate "$results" "0.9" | grep -q "false"; then
+  # 함수가 false를 출력하는지 확인 (return 1이어도 출력 확인)
+  local output
+  output=$(check_test_success_rate "$results" "0.9" 2>/dev/null || true)
+
+  if echo "$output" | grep -q "false"; then
     pass "test_check_test_success_rate_failing"
   else
     fail "test_check_test_success_rate_failing"

@@ -39,7 +39,7 @@ spawn_subagent() {
   local timestamp
   timestamp=$(date +%s)
   local random_suffix
-  random_suffix=$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 6)
+  random_suffix=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom 2>/dev/null | head -c 6 || echo "rand$$")
   local subagent_id="subagent_${timestamp}_${random_suffix}"
 
   local subagent_dir="${project_root}/${SUBAGENT_DIR}/${subagent_id}"

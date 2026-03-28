@@ -417,22 +417,20 @@ detect_browser_test_framework() {
   local project_root="${1:-}"
   local package_json="${project_root}/package.json"
 
-  if [[ ! -f "$package_json" ]]; then
-    echo "none"
-    return 0
+  # 1. package.json에서 확인
+  if [[ -f "$package_json" ]]; then
+    if grep -q '"@playwright/test"' "$package_json" 2>/dev/null; then
+      echo "playwright"
+      return 0
+    fi
+
+    if grep -q '"cypress"' "$package_json" 2>/dev/null; then
+      echo "cypress"
+      return 0
+    fi
   fi
 
-  if grep -q '"@playwright/test"' "$package_json" 2>/dev/null; then
-    echo "playwright"
-    return 0
-  fi
-
-  if grep -q '"cypress"' "$package_json" 2>/dev/null; then
-    echo "cypress"
-    return 0
-  fi
-
-  # 설정 파일 확인
+  # 2. 설정 파일로 확인
   if [[ -f "${project_root}/${PLAYWRIGHT_CONFIG}" ]]; then
     echo "playwright"
     return 0
