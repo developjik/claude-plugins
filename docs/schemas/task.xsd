@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Task XML Schema for harness-engineering
+  Version: 1.0.0
+
+  Usage:
+    xmllint --schema docs/schemas/task.xsd docs/specs/<slug>/tasks/001.xml
+
+  Reference: GSD XML Prompt Format
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!-- Root element -->
+  <xs:element name="task" type="TaskType"/>
+
+  <!-- Task Type Definition -->
+  <xs:complexType name="TaskType">
+    <xs:sequence>
+      <xs:element name="title" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="description" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="files" type="FilesType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="requirements" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="action" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="acceptance_criteria" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="verify" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="done" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="notes" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required">
+      <xs:annotation>
+        <xs:documentation>Unique task identifier (e.g., "001", "002")</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="wave" type="xs:positiveInteger" use="optional" default="1">
+      <xs:annotation>
+        <xs:documentation>Wave number for parallel execution grouping</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="depends" type="DependsType" use="optional" default="">
+      <xs:annotation>
+        <xs:documentation>Comma-separated list of task IDs this task depends on</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="type" type="TaskTypeEnum" use="optional" default="implementation">
+      <xs:annotation>
+        <xs:documentation>Task type for model routing</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="priority" type="PriorityEnum" use="optional" default="medium">
+      <xs:annotation>
+        <xs:documentation>Task priority level</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="estimated_minutes" type="xs:positiveInteger" use="optional">
+      <xs:annotation>
+        <xs:documentation>Estimated completion time in minutes</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <!-- Files Type -->
+  <xs:complexType name="FilesType">
+    <xs:sequence>
+      <xs:element name="file" type="xs:string" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Depends Type (comma-separated IDs) -->
+  <xs:simpleType name="DependsType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([0-9]+,?\s*)*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Task Type Enum -->
+  <xs:simpleType name="TaskTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="implementation"/>
+      <xs:enumeration value="testing"/>
+      <xs:enumeration value="documentation"/>
+      <xs:enumeration value="refactoring"/>
+      <xs:enumeration value="research"/>
+      <xs:enumeration value="review"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Priority Enum -->
+  <xs:simpleType name="PriorityEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="critical"/>
+      <xs:enumeration value="high"/>
+      <xs:enumeration value="medium"/>
+      <xs:enumeration value="low"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- Tasks Container (for multiple tasks in one file) -->
+  <xs:element name="tasks" type="TasksType"/>
+
+  <xs:complexType name="TasksType">
+    <xs:sequence>
+      <xs:element name="task" type="TaskType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="feature" type="xs:string" use="required"/>
+    <xs:attribute name="version" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+</xs:schema>

@@ -2,7 +2,16 @@
 # crash-recovery.sh — Crash Recovery and Forensics System
 # P1-3: State machine based recovery and root cause analysis
 #
-# DEPENDENCIES: json-utils.sh, logging.sh, state-machine.sh
+# DEPENDENCIES: json-utils.sh, logging.sh, state-machine-interface.sh
+#
+# DEPENDENCY HIERARCHY:
+#   json-utils.sh, logging.sh (기본)
+#         ↓
+#   state-machine-interface.sh (인터페이스)
+#         ↓
+#   state-machine.sh (핵심 상태 관리)
+#         ↓
+#   crash-recovery.sh (복구 로직) ← 이 파일
 
 set -euo pipefail
 
@@ -17,6 +26,29 @@ readonly MAX_PHASE_DURATION_MINUTES=30
 readonly RECOVERY_LOG="recovery.log"
 
 # ============================================================================
+# Dependency Loading (인터페이스 사용)
+# ============================================================================
+
+# 의존성 로드 (state-machine-interface.sh 경유)
+_load_dependencies() {
+  local lib_dir
+  lib_dir="$(cd "$(dirname "${BASH_SOURCE:-0}")" && pwd)"
+
+  # 인터페이스 먼저 로드
+  if [[ -f "${lib_dir}/state-machine-interface.sh" ]]; then
+    # shellcheck source=state-machine-interface.sh
+    source "${lib_dir}/state-machine-interface.sh"
+  fi
+
+  # state-machine.sh은 인터페이스를 통해 필요시 로드됨
+}
+
+# 최초 호출 시 의존성 로드
+if ! declare -f ensure_state_machine_loaded &>/dev/null; then
+  _load_dependencies
+fi
+
+# ============================================================================
 # Stuck State Detection
 # ============================================================================
 
@@ -26,15 +58,6 @@ detect_stuck_state() {
   local project_root="${1:-}"
   local max_iterations="${2:-$MAX_ITERATIONS}"
   local max_minutes="${3:-$MAX_PHASE_DURATION_MINUTES}"
-
-  local lib_dir
-  lib_dir="$(cd "$(dirname "${BASH_SOURCE:-0}")" && pwd)"
-
-  if ! declare -f get_state &>/dev/null; then
-    if [[ -f "${lib_dir}/state-machine.sh" ]]; then
-      source "${lib_dir}/state-machine.sh"
-    fi
-  fi
 
   local state_file="${project_root}/.harness/engine/state.json"
 
@@ -323,7 +346,7 @@ generate_recovery_options() {
 }
 
 # ============================================================================
-# State Recovery
+# State Recovery (인터페이스 사용)
 # ============================================================================
 
 # Recover state
@@ -333,14 +356,8 @@ recover_state() {
   local option_id="${2:-}"
   local snapshot_id="${3:-}"
 
-  local lib_dir
-  lib_dir="$(cd "$(dirname "${BASH_SOURCE:-0}")" && pwd)"
-
-  if ! declare -f transition_state &>/dev/null; then
-    if [[ -f "${lib_dir}/state-machine.sh" ]]; then
-      source "${lib_dir}/state-machine.sh"
-    fi
-  fi
+  # 인터페이스를 통해 state-machine 함수 로드
+  ensure_state_machine_loaded
 
   local recovery_dir="${project_root}/${RECOVERY_DIR}"
   mkdir -p "$recovery_dir"
@@ -476,7 +493,7 @@ generate_forensics_report() {
 }
 
 # ============================================================================
-# Checkpoint Management
+# Checkpoint Management (인터페이스 사용)
 # ============================================================================
 
 # Create recovery checkpoint
@@ -486,14 +503,8 @@ create_recovery_checkpoint() {
   local phase="${2:-}"
   local description="${3:-Manual checkpoint}"
 
-  local lib_dir
-  lib_dir="$(cd "$(dirname "${BASH_SOURCE:-0}")" && pwd)"
-
-  if ! declare -f create_snapshot &>/dev/null; then
-    if [[ -f "${lib_dir}/state-machine.sh" ]]; then
-      source "${lib_dir}/state-machine.sh"
-    fi
-  fi
+  # 인터페이스를 통해 state-machine 함수 로드
+  ensure_state_machine_loaded
 
   if declare -f create_snapshot &>/dev/null; then
     create_snapshot "$project_root" "$phase" 2>/dev/null

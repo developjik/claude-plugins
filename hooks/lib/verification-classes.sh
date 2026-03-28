@@ -434,12 +434,9 @@ run_check() {
   fi
 
   # 결과에 추가
-  echo "$results" | jq '.checks += [{
-    "name": "'"$check_name"'",
-    "status": "'"$status"'",
-    "message": "'"$message"'",
-    "output": "'"$(echo "$output" | head -10 | jq -Rs .)"'"
-  }]'
+  local check_entry
+  check_entry=$(echo "$output" | head -10 | jq -Rs . | jq -c '{"name": "'"$check_name"'", "status": "'"$status"'", "message": "'"$message"'", "output": .}')
+  echo "$results" | jq '.checks += ['"$check_entry"']'
 }
 
 # ============================================================================
@@ -533,12 +530,9 @@ run_verification() {
   fi
 
   # 요약 업데이트
-  all_results=$(echo "$all_results" | jq '.summary = {
-    "total": '"$((total_passed + total_failed))"'',
-    "passed": '"$total_passed"'',
-    "failed": '"$total_failed"'',
-    "success_rate": '"$(awk "BEGIN {printf \"%.2f\", $total_passed / ($total_passed + $total_failed)}")"'
-  }')
+  local success_rate
+  success_rate=$(awk "BEGIN {printf \"%.2f\", $total_passed / ($total_passed + $total_failed)}")
+  all_results=$(echo "$all_results" | jq -c '.summary = {"total": '"$((total_passed + total_failed))"', "passed": '"$total_passed"', "failed": '"$total_failed"', "success_rate": "'"$success_rate"'"}')
 
   # 결과 저장
   echo "$all_results" > "${results_dir}/verification_${timestamp}.json"

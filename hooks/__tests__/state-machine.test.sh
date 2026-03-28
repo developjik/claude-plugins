@@ -36,6 +36,8 @@ setup() {
 }
 
 teardown() {
+  # 락 해제 (혹시 남아있을 경우)
+  release_lock "$TEST_DIR" 2>/dev/null || true
   rm -rf "$TEST_DIR"
 }
 

@@ -1,7 +1,40 @@
 {
   "name": "harness-engineering",
-  "description": "확장 PDCA(Plan→Design→Do→Check→Wrap-up) 기반 AI 소프트웨어 개발 자동화 플러그인. 6개 전문 에이전트와 9개 실행 스킬로 체계적인 개발 워크플로우를 제공합니다.",
+  "version": "1.4.0",
+  "displayName": "Harness Engineering — PDCA Development Automation",
+  "description": "Extended PDCA(Plan→Design→Do→Check→Wrap-up) based AI software development automation plugin. Provides systematic development workflows with 6 specialized agents (strategist, architect, engineer, guardian, librarian, debugger) and 12 execution skills. Features L0-L4 automation levels, multi-framework test runner, 4-tier verification classes, wave execution, and hash-anchored edits.",
   "author": {
-    "name": "developjik"
-  }
+    "name": "developjik",
+    "email": "developjik@gmail.com",
+    "url": "https://github.com/developjik"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/developjik/harness-engineering.git"
+  },
+  "homepage": "https://github.com/developjik/harness-engineering#readme",
+  "license": "MIT",
+  "keywords": [
+    "pdca",
+    "development-automation",
+    "ai-native",
+    "workflow-engine",
+    "tdd",
+    "multi-agent",
+    "test-runner",
+    "verification",
+    "wave-execution",
+    "korean"
+  ],
+  "engines": {
+    "claude-code": ">=2.1.0"
+  },
+  "categories": [
+    "development",
+    "workflow",
+    "testing"
+  ],
+  "skills": "./skills",
+  "agents": "./agents",
+  "hooks": "./hooks/hooks.json"
 }

@@ -155,7 +155,7 @@ start_subagent_execution() {
 complete_subagent() {
   local subagent_id="${1:-}"
   local project_root="${2:-}"
-  local status="${3:-completed}"
+  local final_status="${3:-completed}"
   local result_file="${4:-}"
   local subagent_dir="${project_root}/${SUBAGENT_DIR}/${subagent_id}"
 
@@ -165,7 +165,8 @@ complete_subagent() {
 
   local state_file="${subagent_dir}/state.json"
   local end_time
-  end_time=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+  # Fixed: Use UTC for consistent timestamp generation
+  end_time=$(TZ=UTC date -u '+%Y-%m-%dT%H:%M:%SZ')
 
   # 실행 시간 계산
   local duration_ms=0
@@ -174,14 +175,15 @@ complete_subagent() {
 
   if [[ -n "$start_time" ]]; then
     local start_epoch end_epoch
-    start_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$start_time" +%s 2>/dev/null || echo 0)
-    end_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$end_time" +%s 2>/dev/null || echo 0)
+    # Fixed: Add TZ=UTC for consistent timezone handling across platforms
+    start_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$start_time" +%s 2>/dev/null || echo 0)
+    end_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$end_time" +%s 2>/dev/null || echo 0)
     duration_ms=$(( (end_epoch - start_epoch) * 1000 ))
   fi
 
   if command -v jq &>/dev/null; then
     local tmp="${subagent_dir}/state.tmp"
-    jq --arg status "$status" \
+    jq --arg status "$final_status" \
        --arg ts "$end_time" \
        --argjson duration "$duration_ms" \
        '.status = $status | .completed_at = $ts | .duration_ms = $duration' \
@@ -190,7 +192,7 @@ complete_subagent() {
 
   if declare -f log_event &>/dev/null; then
     log_event "$project_root" "INFO" "subagent_completed" "Subagent completed" \
-      "{\"subagent_id\":\"$subagent_id\",\"status\":\"$status\"}"
+      "{\"subagent_id\":\"$subagent_id\",\"status\":\"$final_status\"}"
   fi
 }
 
@@ -327,21 +329,23 @@ cleanup_completed_subagents() {
 
   local cleaned=0
   local now
-  now=$(date +%s)
+  # Fixed: Use UTC for consistent time comparison
+  now=$(TZ=UTC date +%s)
   local max_age_seconds=$((max_age_hours * 3600))
 
   for subagent_dir in "$subagents_dir"/subagent_*; do
     if [[ -d "$subagent_dir" ]]; then
       local state_file="${subagent_dir}/state.json"
       if [[ -f "$state_file" ]]; then
-        local status completed_at
-        status=$(jq -r '.status // "unknown"' "$state_file" 2>/dev/null)
+        local agent_status completed_at
+        agent_status=$(jq -r '.status // "unknown"' "$state_file" 2>/dev/null)
         completed_at=$(jq -r '.completed_at // empty' "$state_file" 2>/dev/null)
 
-        if [[ "$status" == "completed" || "$status" == "failed" || "$status" == "timeout" ]]; then
+        if [[ "$agent_status" == "completed" || "$agent_status" == "failed" || "$agent_status" == "timeout" ]]; then
           if [[ -n "$completed_at" ]]; then
             local completed_epoch
-            completed_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$completed_at" +%s 2>/dev/null || echo 0)
+            # Fixed: Use correct format matching (with or without Z suffix)
+            completed_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "${completed_at%Z}" +%s 2>/dev/null || echo 0)
             local age=$((now - completed_epoch))
 
             if [[ $age -gt $max_age_seconds ]]; then

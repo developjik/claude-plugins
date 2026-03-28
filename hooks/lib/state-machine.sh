@@ -22,9 +22,142 @@ readonly TRANSITIONS_FILE="transitions.jsonl"
 readonly SNAPSHOTS_DIR="snapshots"
 readonly MAX_SNAPSHOTS=20
 readonly LOCK_TIMEOUT=30
+readonly LOCK_RETRY_INTERVAL=0.5
 
 # PDCA 단계
 readonly PDCA_PHASES=("clarify" "plan" "design" "implement" "check" "wrapup")
+
+# ============================================================================
+# 파일 락킹 (File Locking) - 디렉토리 기반 (모든 쉘 호환)
+# ============================================================================
+
+# 락 파일 경로 가져오기
+# Usage: lock_file <project_root>
+lock_file() {
+  local project_root="${1:-}"
+  echo "$(engine_dir "$project_root")/.lock"
+}
+
+# 락 획득 (디렉토리 기반, 모든 쉘 호환)
+# Usage: acquire_lock <project_root> [timeout_seconds]
+# Returns: 0 on success, 1 on timeout
+acquire_lock() {
+  local project_root="${1:-}"
+  local timeout="${2:-$LOCK_TIMEOUT}"
+
+  # 테스트 환경에서는 락킹 비활성화
+  if [[ "${STATE_MACHINE_NO_LOCK:-}" == "true" ]]; then
+    return 0
+  fi
+
+  local lock_file
+  lock_file=$(lock_file "$project_root")
+  local lock_dir="${lock_file}.d"
+
+  # 락 디렉토리 생성 (부모 디렉토리)
+  mkdir -p "$(dirname "$lock_file")"
+
+  # 이미 현재 프로세스가 락을 가지고 있는지 확인 (재진입 방지)
+  if [[ -d "$lock_dir" ]]; then
+    local existing_pid
+    existing_pid=$(cat "${lock_dir}/pid" 2>/dev/null || echo "")
+    if [[ "$existing_pid" == "$$" ]]; then
+      return 0  # 이미 락 획득됨
+    fi
+  fi
+
+  local start_time elapsed
+  start_time=$(date +%s)
+
+  while true; do
+    # atomic mkdir - 이미 존재하면 실패
+    if mkdir "$lock_dir" 2>/dev/null; then
+      echo $$ > "${lock_dir}/pid"
+      echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "${lock_dir}/acquired_at"
+      return 0
+    fi
+
+    elapsed=$(( $(date +%s) - start_time ))
+    if [[ "$elapsed" -ge "$timeout" ]]; then
+      log_validation_error "lock_timeout" "$project_root" "Failed to acquire lock within ${timeout}s"
+      return 1
+    fi
+
+    # 잠시 대기 후 재시도
+    sleep "$LOCK_RETRY_INTERVAL"
+  done
+}
+
+# 락 해제
+# Usage: release_lock <project_root>
+release_lock() {
+  local project_root="${1:-}"
+
+  local lock_file
+  lock_file=$(lock_file "$project_root")
+  local lock_dir="${lock_file}.d"
+
+  # 락 디렉토리 제거
+  rm -rf "$lock_dir" 2>/dev/null || true
+}
+
+# 락과 함께 명령 실행 (래퍼 함수)
+# Usage: with_lock <project_root> <command...>
+with_lock() {
+  local project_root="${1:-}"
+  shift
+
+  if ! acquire_lock "$project_root"; then
+    return 1
+  fi
+
+  # trap으로 항상 락 해제 보장
+  trap "release_lock '$project_root'" EXIT
+
+  "$@"
+  local result=$?
+
+  release_lock "$project_root"
+  trap - EXIT
+
+  return $result
+}
+
+# 락 상태 확인
+# Usage: is_locked <project_root>
+is_locked() {
+  local project_root="${1:-}"
+
+  local lock_file
+  lock_file=$(lock_file "$project_root")
+  local lock_dir="${lock_file}.d"
+
+  [[ -d "$lock_dir" ]]
+}
+
+# 락 정보 조회
+# Usage: get_lock_info <project_root>
+get_lock_info() {
+  local project_root="${1:-}"
+
+  local lock_file
+  lock_file=$(lock_file "$project_root")
+  local lock_dir="${lock_file}.d"
+
+  if [[ ! -d "$lock_dir" ]]; then
+    echo '{"locked": false}'
+    return 0
+  fi
+
+  local pid acquired_at
+  pid=$(cat "${lock_dir}/pid" 2>/dev/null || echo "unknown")
+  acquired_at=$(cat "${lock_dir}/acquired_at" 2>/dev/null || echo "unknown")
+
+  jq -n \
+    --arg pid "$pid" \
+    --arg acquired_at "$acquired_at" \
+    '{"locked": true, "pid": $pid, "acquired_at": $acquired_at}'
+}
 
 # ============================================================================
 # 전환 규칙 (Transition Rules)
@@ -335,13 +468,22 @@ can_transition() {
 }
 
 # ============================================================================
-# 스냅샷 생성
+# 스냅샷 생성 (락킹 적용)
 # Usage: create_snapshot <project_root> [phase]
 # Returns: snapshot_id
 # ============================================================================
 create_snapshot() {
   local project_root="${1:-}"
   local phase="${2:-$(get_current_phase "$project_root")}"
+
+  # 락 획득
+  if ! acquire_lock "$project_root"; then
+    echo "ERROR: Failed to acquire lock for snapshot creation" >&2
+    return 1
+  fi
+
+  # trap으로 항상 락 해제 보장
+  trap "release_lock '$project_root'" EXIT
 
   local snapshots_dir
   snapshots_dir=$(snapshots_dir "$project_root")
@@ -401,6 +543,10 @@ create_snapshot() {
 
   # 오래된 스냅샷 정리
   cleanup_old_snapshots "$project_root"
+
+  # 락 해제
+  release_lock "$project_root"
+  trap - EXIT
 
   echo "$snapshot_id"
 }
@@ -486,7 +632,7 @@ list_snapshots() {
 }
 
 # ============================================================================
-# 상태 전환
+# 상태 전환 (락킹 적용)
 # Usage: transition_state <project_root> <to_phase> [reason] [actor]
 # ============================================================================
 transition_state() {
@@ -503,6 +649,15 @@ transition_state() {
     return 1
   fi
 
+  # 락 획득
+  if ! acquire_lock "$project_root"; then
+    echo "ERROR: Failed to acquire lock for state transition" >&2
+    return 1
+  fi
+
+  # trap으로 항상 락 해제 보장
+  trap "release_lock '$project_root'" EXIT
+
   local current_state
   current_state=$(get_state "$project_root")
   local from_phase
@@ -513,13 +668,15 @@ transition_state() {
   can_trans=$(can_transition "$project_root" "$from_phase" "$to_phase")
 
   if [[ "$can_trans" != true* ]]; then
+    release_lock "$project_root"
+    trap - EXIT
     echo "ERROR: Cannot transition from $from_phase to $to_phase: $can_trans" >&2
     return 1
   fi
 
-  # 스냅샷 생성
+  # 스냅샷 생성 (락 이미 획득된 상태에서 내부적으로 처리)
   local snapshot_id
-  snapshot_id=$(create_snapshot "$project_root" "$from_phase")
+  snapshot_id=$(create_snapshot_without_lock "$project_root" "$from_phase")
 
   # 상태 업데이트
   local timestamp
@@ -557,7 +714,77 @@ transition_state() {
   # 전환 로그
   log_transition "$project_root" "transition" "$from_phase" "$to_phase" "$reason"
 
+  # 락 해제
+  release_lock "$project_root"
+  trap - EXIT
+
   echo "✅ Transitioned: $from_phase → $to_phase"
+}
+
+# ============================================================================
+# 락 없이 스냅샷 생성 (내부용)
+# Usage: create_snapshot_without_lock <project_root> [phase]
+# ============================================================================
+create_snapshot_without_lock() {
+  local project_root="${1:-}"
+  local phase="${2:-$(get_current_phase "$project_root")}"
+
+  local snapshots_dir
+  snapshots_dir=$(snapshots_dir "$project_root")
+  local timestamp
+  timestamp=$(date +%Y%m%d_%H%M%S)
+  local snapshot_id="snap_${phase}_${timestamp}"
+  local snapshot_file="${snapshots_dir}/${snapshot_id}.json"
+
+  # 현재 상태와 관련 파일들 스냅샷
+  local state
+  state=$(get_state "$project_root")
+
+  local files_snapshot="{}"
+  local feature_slug
+  feature_slug=$(echo "$state" | jq -r '.feature_slug // empty')
+
+  if [[ -n "$feature_slug" ]]; then
+    local spec_dir="${project_root}/docs/specs/${feature_slug}"
+
+    for file in "plan.md" "design.md" "STATE.md"; do
+      if [[ -f "${spec_dir}/${file}" ]]; then
+        local content_hash
+        content_hash=$(md5 -q "${spec_dir}/${file}" 2>/dev/null || \
+                       md5sum "${spec_dir}/${file}" 2>/dev/null | cut -d' ' -f1)
+        files_snapshot=$(echo "$files_snapshot" | jq \
+          --arg file "$file" \
+          --arg hash "$content_hash" \
+          '.[$file] = $hash')
+      fi
+    done
+  fi
+
+  # 스냅샷 저장
+  jq -n \
+    --arg id "$snapshot_id" \
+    --arg phase "$phase" \
+    --arg ts "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+    --argjson state "$state" \
+    --argjson files "$files_snapshot" \
+    '{
+      id: $id,
+      phase: $phase,
+      created_at: $ts,
+      state: $state,
+      files: $files
+    }' > "$snapshot_file"
+
+  # 상태에 스냅샷 ID 추가
+  local state_file
+  state_file=$(state_file "$project_root")
+  if command -v jq &>/dev/null; then
+    local tmp="${state_file}.tmp"
+    jq --arg snap "$snapshot_id" '.snapshots += [$snap]' "$state_file" > "$tmp" && \
+      mv "$tmp" "$state_file"
+  fi
+
+  echo "$snapshot_id"
 }
 
 # ============================================================================
@@ -629,10 +856,10 @@ save_check_results() {
 }
 
 # ============================================================================
-# 크래시 복구
-# Usage: recover_state <project_root>
+# 상태 복구 정보 표시 (실제 복구는 crash-recovery.sh 담당)
+# Usage: show_recovery_status <project_root>
 # ============================================================================
-recover_state() {
+show_recovery_status() {
   local project_root="${1:-}"
   local state_file
   state_file=$(state_file "$project_root")
@@ -642,7 +869,7 @@ recover_state() {
     return 0
   fi
 
-  echo "🔧 State Recovery"
+  echo "🔧 State Recovery Status"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
 
@@ -662,9 +889,25 @@ recover_state() {
   list_snapshots "$project_root" | jq -r '.[] | "  - \(.id) (\(.phase))"'
 
   echo ""
-  echo "➡️ Options:"
-  echo "  /recover --resume                # Resume from current state"
-  echo "  /recover --rollback <snapshot_id> # Rollback to snapshot"
+  echo "➡️ For actual recovery, use crash-recovery.sh:"
+  echo "  source hooks/lib/crash-recovery.sh"
+  echo "  run_recovery_process \"$project_root\""
+}
+
+# ============================================================================
+# 레거시 호환성 유지 (crash-recovery.sh의 recover_state 호출)
+# Usage: recover_state <project_root>
+# ============================================================================
+recover_state() {
+  local project_root="${1:-}"
+
+  # crash-recovery.sh가 로드되어 있으면 해당 함수 사용
+  if declare -f run_recovery_process &>/dev/null; then
+    run_recovery_process "$project_root"
+  else
+    # 폴백: 상태만 표시
+    show_recovery_status "$project_root"
+  fi
 }
 
 # ============================================================================

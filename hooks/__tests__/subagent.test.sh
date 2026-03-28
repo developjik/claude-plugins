@@ -414,10 +414,11 @@ test_cleanup_completed_subagents() {
   # id2는 pending 상태 유지
 
   # 정리 (0시간 = 즉시 정리)
+  # Fixed: Use 0 to clean immediately completed subagents
   local cleaned
   cleaned=$(cleanup_completed_subagents "$TEST_DIR" 0)
 
-  # id1은 정리되고 id2는 남아야 함
+  # id1은 정리되고 id2는 남아야 함 (id2는 pending 상태)
   local dir1="${TEST_DIR}/.harness/subagents/${id1}"
   local dir2="${TEST_DIR}/.harness/subagents/${id2}"
 

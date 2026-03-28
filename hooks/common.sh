@@ -1,33 +1,93 @@
 #!/usr/bin/env bash
 # common.sh — Harness 훅 공통 헬퍼 (리팩토링된 버전)
 # 분리된 모듈들을 source하는 진입점 역할
+#
+# 리팩토링: 지연 초기화 패턴 도입
+# - 핵심 모듈(json-utils, logging)만 항상 로드
+# - 나머지 모듈은 실제 사용 시점에 로드
+# - 초기 로딩 시간 단축
+#
 
 # ============================================================================
-# 모듈 로드
+# 스크립트 디렉토리 및 상수
 # ============================================================================
 
-# 스크립트 디렉토리 확인
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
-# 분리된 모듈 로드
-if [[ -d "$LIB_DIR" ]]; then
-  source "${LIB_DIR}/json-utils.sh"
-  source "${LIB_DIR}/context-rot.sh"
-  source "${LIB_DIR}/automation-level.sh"
-  source "${LIB_DIR}/feature-registry.sh"
-  source "${LIB_DIR}/logging.sh"
-  source "${LIB_DIR}/cleanup.sh"
-  source "${LIB_DIR}/feature-sync.sh"
-  source "${LIB_DIR}/test-runner.sh"
-  source "${LIB_DIR}/verification-classes.sh"
-  source "${LIB_DIR}/subagent-spawner.sh"
-  source "${LIB_DIR}/state-machine.sh"
-  source "${LIB_DIR}/review-engine.sh"
-  source "${LIB_DIR}/skill-evaluation.sh"
-  source "${LIB_DIR}/crash-recovery.sh"
-  source "${LIB_DIR}/browser-testing.sh"
-fi
+# ============================================================================
+# 지연 초기화 시스템
+# ============================================================================
+
+# 모듈 로드 상태 추적
+declare -A _HARNESS_MODULE_LOADED=(
+  [json-utils]=false
+  [logging]=false
+  [validation]=false
+  [state-machine]=false
+  [subagent-spawner]=false
+  [crash-recovery]=false
+  [browser-testing]=false
+  [feature-registry]=false
+  [context-rot]=false
+  [automation-level]=false
+  [test-runner]=false
+  [verification-classes]=false
+  [review-engine]=false
+  [skill-evaluation]=false
+  [wave-executor]=false
+  [hash-anchored-edit]=false
+  [cleanup]=false
+  [skill-chain]=false
+  [worktree]=false
+  [feature-sync]=false
+  [lsp-tools]=false
+  [browser-controller]=false
+  [task-format]=false
+)
+
+# 모듈 로드 함수
+_harness_load_module() {
+  local module_name="${1:-}"
+  local module_file="${LIB_DIR}/${module_name}.sh"
+
+  # 이미 로드되었으면 종료
+  if [[ "${_HARNESS_MODULE_LOADED[$module_name]}" == "true" ]]; then
+    return 0
+  fi
+
+  # 파일 존재 확인
+  if [[ ! -f "$module_file" ]]; then
+    echo "[WARN] Module not found: ${module_name}" >&2
+    return 1
+  fi
+
+  # 모듈 source
+  source "$module_file"
+  _HARNESS_MODULE_LOADED[$module_name]=true
+}
+
+# ============================================================================
+# 핵심 모듈 로드 (항상 필요)
+# ============================================================================
+
+# json-utils: JSON 파싱 유틸리티 (필수)
+_harness_load_module "json-utils"
+
+# logging: 로깱 유틸리티 (필수)
+_harness_load_module "logging"
+
+# ============================================================================
+# 지연 로드될 모듈들 (사용 시점에 자동 로드)
+# 실제 사용되는 함수에서 필요한 모듈을 호출
+# 예: validate_file_path() → validation.sh 로드
+# ============================================================================
+
+# 선택적 로드 헬퍼 (함수 내부에서 호출)
+_harness_ensure_module() {
+  local module_name="${1:-}"
+  _harness_load_module "$module_name"
+}
 
 # ============================================================================
 # 프로젝트 경로 관련 함수
@@ -113,14 +173,14 @@ ensure_runtime_git_exclude() {
 # 버전 정보
 # ============================================================================
 
-HARNESS_COMMON_VERSION="2.1.0"
+HARNESS_COMMON_VERSION="2.2.0"
 
 harness_version() {
   echo "$HARNESS_COMMON_VERSION"
 }
 
 # ============================================================================
-# 호환성 래퍼 함수 (lib/feature-registry.sh로 위임)
+# 호환성 래퍼 함수
 # ============================================================================
 
 # detect_file_conflicts → check_dependency_conflicts로 이름 변경됨

@@ -144,6 +144,24 @@ validate_command() {
     return 1
   fi
 
+  # 1-2. 간접 변수 확장 차단 (${!var})
+  if [[ "$command" =~ \$\{! ]]; then
+    log_validation_error "indirect_expansion" "$command" "Indirect variable expansion detected"
+    return 1
+  fi
+
+  # 1-3. 산술 확장 차단 ($(( )))
+  if [[ "$command" =~ \$\(\( ]]; then
+    log_validation_error "arithmetic_expansion" "$command" "Arithmetic expansion detected"
+    return 1
+  fi
+
+  # 1-4. 프로세스 대체 차단 (<() >())
+  if [[ "$command" == *'<('* ]] || [[ "$command" == *'>('* ]]; then
+    log_validation_error "process_substitution" "$command" "Process substitution detected"
+    return 1
+  fi
+
   # 2. 명령어 체이닝 패턴 검사 (&&, ||, ;)
   # 허용된 파이프(|)를 제외하고 체이닝 차단
   # 주의: | 단독은 허용하되 ||는 차단
@@ -160,10 +178,13 @@ validate_command() {
   # 세미콜론 명령어 구분자 차단
   # 주의: 문자열 내 세미콜론은 허용할 수 있으나, 보안상 엄격하게 차단
   if [[ "$command" == *';'* ]]; then
-    # 예외: 명령어 끝의 세미콜론은 무시 (일부 쉘에서 허용)
+    # Fixed: Check if semicolon is NOT at the end (which would be safe)
+    # If the last character is not a semicolon, there's a semicolon in the middle
     local trimmed
     trimmed=$(echo "$command" | sed 's/[[:space:]]*$//')
-    if [[ "$trimmed" == *';'* ]] && [[ "$trimmed" != *';' ]]; then
+    # Block if trimmed command contains semicolon AND doesn't end with semicolon
+    # This catches "ls; whoami" but allows commands ending with just ";"
+    if [[ "${trimmed: -1}" != ';' ]]; then
       # 중간에 세미콜론이 있으면 차단
       log_validation_error "command_separator" "$command" "Command separator ; detected"
       return 1

@@ -102,18 +102,27 @@ generate_chain_block_message() {
   local requires="${2:-}"
   local feature_slug="${3:-}"
 
-  local phase_names
-  declare -A phase_names=(
-    ["clarify"]="Clarify (요청 구체화)"
-    ["plan"]="Plan (요구사항 정의)"
-    ["design"]="Design (기술 설계)"
-    ["implement"]="Implement (TDD 구현)"
-    ["check"]="Check (검증)"
-    ["wrapup"]="Wrap-up (문서화)"
-  )
+  # Phase display names
+  local required_name="${requires}"
+  local current_name="${skill_name}"
 
-  local required_name="${phase_names[$requires]:-$requires}"
-  local current_name="${phase_names[$skill_name]:-$skill_name}"
+  case "$requires" in
+    clarify) required_name="Clarify (요청 구체화)" ;;
+    plan) required_name="Plan (요구사항 정의)" ;;
+    design) required_name="Design (기술 설계)" ;;
+    implement) required_name="Implement (TDD 구현)" ;;
+    check) required_name="Check (검증)" ;;
+    wrapup) required_name="Wrap-up (문서화)" ;;
+  esac
+
+  case "$skill_name" in
+    clarify) current_name="Clarify (요청 구체화)" ;;
+    plan) current_name="Plan (요구사항 정의)" ;;
+    design) current_name="Design (기술 설계)" ;;
+    implement) current_name="Implement (TDD 구현)" ;;
+    check) current_name="Check (검증)" ;;
+    wrapup) current_name="Wrap-up (문서화)" ;;
+  esac
 
   cat <<EOF
 {

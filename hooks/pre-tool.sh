@@ -34,12 +34,12 @@ case "$TOOL_NAME" in
 
     # 위험 패턴 정의 (확장)
     # 블랙리스트: 절대 차단
+    # Fixed: Changed regex patterns to literal strings for safer matching
     DANGEROUS_BLACKLIST=(
       "rm -rf /"
       "rm -rf /*"
       "rm -rf ~"
-      "rm -rf \$HOME"
-      "rm -rf \${HOME}"
+      "rm -rf $HOME"
       "sudo rm -rf"
       "mkfs"
       "dd if=/dev/zero"
@@ -49,14 +49,21 @@ case "$TOOL_NAME" in
       "chmod -R 777 ~"
       "> /dev/sd"
       "> /dev/hd"
-      "curl.*|.*bash"
-      "wget.*|.*bash"
-      "curl.*|.*sh"
-      "wget.*|.*sh"
-      "eval.*\$"
-      "exec.*\$"
-      "rm -rf \.\*"
-      "rm -rf \.\./"
+      "| bash"
+      "|  bash"
+      "|bash"
+      "| sh"
+      "|  sh"
+      "|sh"
+      "|/bin/bash"
+      "|/bin/sh"
+      "curl "
+      "wget "
+      "eval "
+      "exec "
+      "rm -rf *"
+      "rm -rf ./*"
+      "rm -rf ../"
       "rm -rf /home"
       "rm -rf /Users"
       "rm -rf /etc"
@@ -132,7 +139,8 @@ case "$TOOL_NAME" in
     if [[ "$IS_SAFE" == false ]]; then
       # 블랙리스트 확인
       for dangerous_pattern in "${DANGEROUS_BLACKLIST[@]}"; do
-        if echo "$COMMAND" | grep -qE "$dangerous_pattern"; then
+        # Fixed: Use grep -qF for literal matching to prevent regex bypass
+        if echo "$COMMAND" | grep -qF "$dangerous_pattern"; then
           echo "[$TIMESTAMP] BLOCKED (blacklist): $COMMAND" >> "${LOG_DIR}/security.log"
           log_event "$(harness_project_root "$PAYLOAD")" "WARN" "command_blocked" \
             "Blocked dangerous command" "\"command\":\"$(mask_sensitive_data "$COMMAND")\",\"pattern\":\"$dangerous_pattern\""
@@ -144,7 +152,8 @@ case "$TOOL_NAME" in
 
       # 의심 패턴 확인 (경고만)
       for suspicious_pattern in "${SUSPICIOUS_PATTERNS[@]}"; do
-        if echo "$COMMAND" | grep -qE "$suspicious_pattern"; then
+        # Fixed: Use grep -qF for literal matching
+        if echo "$COMMAND" | grep -qF "$suspicious_pattern"; then
           echo "[$TIMESTAMP] SUSPICIOUS: $COMMAND" >> "${LOG_DIR}/security.log"
           log_event "$(harness_project_root "$PAYLOAD")" "WARN" "suspicious_command" \
             "Suspicious command detected" "\"command\":\"$(mask_sensitive_data "$COMMAND")\",\"pattern\":\"$suspicious_pattern\""

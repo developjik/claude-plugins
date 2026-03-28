@@ -488,7 +488,8 @@ cleanup_old_metrics() {
         ts=$(echo "$line" | jq -r '.timestamp // "2000-01-01T00:00:00Z"')
 
         local ts_epoch
-        ts_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null || echo 0)
+        # Fixed: Add TZ=UTC for consistent timezone handling
+        ts_epoch=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null || echo 0)
 
         if [[ "$ts_epoch" -ge "$cutoff_date" ]]; then
           echo "$line" >> "$tmp_file"

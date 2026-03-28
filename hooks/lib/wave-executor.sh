@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 # wave-executor.sh — Wave 기반 병렬 실행 시스템
 # P0-2: 실제 서브에이전트 스포닝으로 개선
+# P1-5: 하이브리드 태스크 포맷 지원 (XML + Markdown)
 #
-# DEPENDENCIES: json-utils.sh, logging.sh, subagent-spawner.sh, state-machine.sh
+# DEPENDENCIES: json-utils.sh, logging.sh, subagent-spawner.sh, state-machine.sh, task-format.sh
 #
 # 변경사항 (P0-2):
 # - 시뮬레이션 → 실제 서브에이전트 실행
 # - Agent 툴 연동
 # - 상태 추적 및 결과 집계
 # - 크래시 복구 지원
+#
+# 변경사항 (P1-5):
+# - XML 태스크 포맷 지원
+# - Markdown/XML 자동 감지
+# - 포맷 간 변환 지원
 
 set -euo pipefail
 
@@ -26,6 +32,76 @@ if ! declare -f spawn_subagent &>/dev/null; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   source "${SCRIPT_DIR}/subagent-spawner.sh" 2>/dev/null || true
 fi
+
+# 태스크 포맷 변환 라이브러리 로드
+if ! declare -f detect_task_format &>/dev/null; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  source "${SCRIPT_DIR}/task-format.sh" 2>/dev/null || true
+fi
+
+# ============================================================================
+# 하이브리드 태스크 로딩 (XML + Markdown)
+# ============================================================================
+
+# load_task <task_file>
+# Returns: JSON with task data (auto-detects format)
+load_task() {
+  local task_file="${1:-}"
+
+  if [[ ! -f "$task_file" ]]; then
+    echo '{"error": "file_not_found", "file": "'"$task_file"'"}'
+    return 1
+  fi
+
+  local format
+  format=$(detect_task_format "$task_file")
+
+  case "$format" in
+    xml)
+      parse_xml_task "$task_file"
+      ;;
+    md)
+      parse_md_task "$task_file"
+      ;;
+    *)
+      echo '{"error": "unknown_format", "file": "'"$task_file"'"}'
+      return 1
+      ;;
+  esac
+}
+
+# load_all_tasks <tasks_dir>
+# Returns: JSON array of all tasks
+load_all_tasks() {
+  local tasks_dir="${1:-}"
+
+  if [[ ! -d "$tasks_dir" ]]; then
+    echo "[]"
+    return 1
+  fi
+
+  local all_tasks="[]"
+
+  # Load XML tasks
+  for xml_file in "$tasks_dir"/*.xml; do
+    if [[ -f "$xml_file" ]]; then
+      local task_json
+      task_json=$(parse_xml_task "$xml_file")
+      all_tasks=$(echo "$all_tasks" | jq --argjson task "$task_json" '. += [$task]')
+    fi
+  done
+
+  # Load Markdown tasks
+  for md_file in "$tasks_dir"/*.md; do
+    if [[ -f "$md_file" ]]; then
+      local task_json
+      task_json=$(parse_md_task "$md_file")
+      all_tasks=$(echo "$all_tasks" | jq --argjson task "$task_json" '. += [$task]')
+    fi
+  done
+
+  echo "$all_tasks"
+}
 
 # ============================================================================
 # YAML 파싱 (yq 없이도 동작)
