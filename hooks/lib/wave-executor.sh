@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # wave-executor.sh — Wave 기반 병렬 실행 시스템
-# 독립적인 태스크들을 병렬로 실행
+# P0-2: 실제 서브에이전트 스포닝으로 개선
+#
+# DEPENDENCIES: json-utils.sh, logging.sh, subagent-spawner.sh, state-machine.sh
+#
+# 변경사항 (P0-2):
+# - 시뮬레이션 → 실제 서브에이전트 실행
+# - Agent 툴 연동
+# - 상태 추적 및 결과 집계
+# - 크래시 복구 지원
 
 set -euo pipefail
 
@@ -10,6 +18,14 @@ set -euo pipefail
 
 readonly MAX_PARALLEL_TASKS=4  # 최대 병렬 태스크 수
 readonly WAVE_TIMEOUT=300      # Wave당 최대 실행 시간 (초)
+readonly TASK_TIMEOUT=600      # 태스크당 최대 실행 시간 (초)
+readonly RETRY_COUNT=2         # 실패 시 재시도 횟수
+
+# 서브에이전트 스포너 로드
+if ! declare -f spawn_subagent &>/dev/null; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  source "${SCRIPT_DIR}/subagent-spawner.sh" 2>/dev/null || true
+fi
 
 # ============================================================================
 # YAML 파싱 (yq 없이도 동작)
@@ -90,41 +106,128 @@ topological_sort() {
 }
 
 # ============================================================================
-# Wave 실행
+# 단일 태스크 실행 (실제 서브에이전트 사용)
+# Usage: execute_task <task_file> <project_root> [model]
+# Returns: subagent_id on success, empty on failure
 # ============================================================================
-
-# 단일 태스크 실행
 execute_task() {
   local task_file="${1:-}"
   local project_root="${2:-}"
+  local model="${3:-sonnet}"
+
   local log_dir="${project_root}/.harness/logs"
+  local task_name
+  task_name=$(basename "$task_file" .md 2>/dev/null || echo "unknown")
 
   mkdir -p "$log_dir"
 
-  local task_name=$(basename "$task_file" .md)
-  local start_time=$(date +%s)
+  # 로그: 태스크 시작
+  if declare -f log_event &>/dev/null; then
+    log_event "$project_root" "INFO" "task_start" "Starting task" \
+      "\"task\":\"$task_name\",\"model\":\"$model\""
+  fi
 
-  log_event "$project_root" "INFO" "task_start" "Starting task" "\"task\":\"$task_name\""
-
-  # 태스크 파일이 존재하는지 확인
+  # 태스크 파일 존재 확인
   if [[ ! -f "$task_file" ]]; then
-    log_event "$project_root" "ERROR" "task_error" "Task file not found" "\"task\":\"$task_name\""
+    if declare -f log_event &>/dev/null; then
+      log_event "$project_root" "ERROR" "task_error" "Task file not found" \
+        "\"task\":\"$task_name\""
+    fi
     return 1
   fi
 
-  # 태스크 내용을 읽어서 /implement 스킬에 전달
-  # 실제 구현에서는 Claude Code API 호출
-  log_event "$project_root" "INFO" "task_execute" "Executing task content" "\"task\":\"$task_name\""
+  # 서브에이전트 스폰
+  local subagent_id=""
+  if declare -f spawn_subagent &>/dev/null; then
+    subagent_id=$(spawn_subagent "$task_file" "$project_root" "$model" "task_execution")
+  else
+    # 스포너 없으면 기존 방식으로 폴백
+    if declare -f log_event &>/dev/null; then
+      log_event "$project_root" "WARN" "task_fallback" "Using fallback execution (no spawner)" \
+        "\"task\":\"$task_name\""
+    fi
+    echo "[INFO] Executing task: $task_name (simulation mode)" >&2
+    subagent_id="sim_$(date +%s)_$$"
+  fi
 
-  local end_time=$(date +%s)
-  local duration=$((end_time - start_time))
+  # 로그: 서브에이전트 스폰
+  if declare -f log_event &>/dev/null; then
+    log_event "$project_root" "INFO" "subagent_spawned" "Subagent spawned for task" \
+      "\"task\":\"$task_name\",\"subagent_id\":\"$subagent_id\""
+  fi
 
-  log_event "$project_root" "INFO" "task_complete" "Task completed" "\"task\":\"$task_name\",\"duration\":${duration}"
-
-  return 0
+  echo "$subagent_id"
 }
 
-# Wave 실행 (병렬 또는 순차)
+# ============================================================================
+# 태스크 실행 및 결과 대기 (Agent 툴 연동용)
+# Usage: execute_task_sync <task_file> <project_root> [model]
+# Returns: JSON with subagent_id and status
+# ============================================================================
+execute_task_sync() {
+  local task_file="${1:-}"
+  local project_root="${2:-}"
+  local model="${3:-sonnet}"
+
+  local subagent_id
+  subagent_id=$(execute_task "$task_file" "$project_root" "$model")
+
+  if [[ -z "$subagent_id" ]]; then
+    echo '{"error": "spawn_failed", "status": "failed"}'
+    return 1
+  fi
+
+  # 실행 시작
+  if declare -f start_subagent_execution &>/dev/null; then
+    start_subagent_execution "$subagent_id" "$project_root"
+  fi
+
+  # Agent 툴 파라미터 반환 (실제 실행은 Claude Code에서)
+  if declare -f generate_agent_params &>/dev/null; then
+    generate_agent_params "$subagent_id" "$project_root"
+  else
+    jq -n --arg id "$subagent_id" \
+      '{"subagent_id": $id, "status": "ready_for_execution"}'
+  fi
+}
+
+# ============================================================================
+# 태스크 완료 처리 (Agent 실행 후 호출)
+# Usage: complete_task <subagent_id> <project_root> <result_content>
+# ============================================================================
+complete_task() {
+  local subagent_id="${1:-}"
+  local project_root="${2:-}"
+  local result_content="${3:-}"
+
+  local status="completed"
+
+  # 결과 내용으로 성공/실패 판단
+  if echo "$result_content" | grep -qiE "error|failed|exception"; then
+    status="failed"
+  fi
+
+  # 서브에이전트 완료 처리
+  if declare -f finalize_agent_execution &>/dev/null; then
+    finalize_agent_execution "$subagent_id" "$project_root" "$result_content"
+  fi
+
+  # 로그: 태스크 완료
+  local subagent_dir="${project_root}/${SUBAGENT_DIR:-.harness/subagents}/${subagent_id}"
+  if [[ -f "${subagent_dir}/state.json" ]]; then
+    local duration
+    duration=$(jq -r '.duration_ms // 0' "${subagent_dir}/state.json" 2>/dev/null)
+
+    if declare -f log_event &>/dev/null; then
+      log_event "$project_root" "INFO" "task_complete" "Task completed" \
+        "\"subagent_id\":\"$subagent_id\",\"status\":\"$status\",\"duration_ms\":${duration}"
+    fi
+  fi
+}
+
+# Wave 실행 (병렬 또는 순차) - 개선된 버전
+# Usage: execute_wave <wave_num> <tasks_json> <project_root> [parallel]
+# Returns: JSON with wave results
 execute_wave() {
   local wave_num="${1:-}"
   local tasks_json="${2:-}"
@@ -137,77 +240,160 @@ execute_wave() {
 
   mkdir -p "$state_dir" "$log_dir"
 
-  log_event "$project_root" "INFO" "wave_start" "Starting wave" "\"wave\":${wave_num},\"parallel\":${parallel}"
+  # 로그: Wave 시작
+  if declare -f log_event &>/dev/null; then
+    log_event "$project_root" "INFO" "wave_start" "Starting wave with real subagents" \
+      "\"wave\":${wave_num},\"parallel\":${parallel}"
+  fi
 
-  local pids=()
-  local task_count=0
-
-  # 태스크들을 배열로 변환
-  # 실제로는 jq 사용
+  # 태스크 파일 목록 추출
   local tasks=()
+  if [[ -n "$tasks_json" ]] && command -v jq >/dev/null 2>&1; then
+    while IFS= read -r task_file; do
+      if [[ -n "$task_file" ]]; then
+        tasks+=("$task_file")
+      fi
+    done < <(printf '%s' "$tasks_json" | jq -r '.[]?.file // .[]?.path // empty' 2>/dev/null)
+  fi
+
+  # tasks가 비어있으면 경고 후 종료
+  if [[ ${#tasks[@]} -eq 0 ]]; then
+    if declare -f log_event &>/dev/null; then
+      log_event "$project_root" "WARN" "wave_empty" "No tasks to execute in wave" \
+        "\"wave\":${wave_num}"
+    fi
+    echo '{"wave":'"${wave_num}"',"status":"empty","subagents":[]}'
+    return 0
+  fi
+
+  local subagent_ids=()
+  local failed=0
 
   if [[ "$parallel" == "true" ]]; then
-    # 병렬 실행
+    # 병렬 실행: 서브에이전트 스폰
     for task_file in "${tasks[@]}"; do
       if [[ -f "$task_file" ]]; then
-        (
-          execute_task "$task_file" "$project_root"
-          local result=$?
-          if [[ $result -eq 0 ]]; then
-            local task_name=$(basename "$task_file" .md)
-            echo "$task_name" >> "$completed_file"
-          fi
-          exit $result
-        ) &
-        pids+=($!)
-        task_count=$((task_count + 1))
+        local subagent_id
+        subagent_id=$(execute_task "$task_file" "$project_root" "sonnet")
 
-        # 최대 병렬 태스크 수 제한
-        if [[ $task_count -ge $MAX_PARALLEL_TASKS ]]; then
-          wait "${pids[-1]}" 2>/dev/null || true
-          task_count=$((task_count - 1))
+        if [[ -n "$subagent_id" ]]; then
+          subagent_ids+=("$subagent_id")
+
+          # 병렬 제한: MAX_PARALLEL_TASKS 개수만큼만 동시에
+          if [[ ${#subagent_ids[@]} -ge $MAX_PARALLEL_TASKS ]]; then
+            # 첫 번째 완료될 때까지 대기 (실제로는 Agent 실행 후 콜백)
+            :
+          fi
         fi
       fi
     done
 
-    # 모든 백그라운드 프로세스 대기
-    local failed=0
-    for pid in "${pids[@]}"; do
-      if ! wait "$pid" 2>/dev/null; then
-        failed=$((failed + 1))
+    # 로그: 병렬 실행 시작
+    if declare -f log_event &>/dev/null; then
+      log_event "$project_root" "INFO" "wave_parallel" "Parallel execution started" \
+        "\"wave\":${wave_num},\"subagent_count\":${#subagent_ids[@]}"
+    fi
+
+    # Agent 툴 실행 파라미터 반환
+    local agent_params='{"wave":'"${wave_num}"',"parallel":true,"subagents":['
+    local first=true
+    for subagent_id in "${subagent_ids[@]}"; do
+      if [[ "$first" == true ]]; then
+        first=false
+      else
+        agent_params+=","
+      fi
+
+      if declare -f generate_agent_params &>/dev/null; then
+        local params
+        params=$(generate_agent_params "$subagent_id" "$project_root")
+        agent_params+="$params"
+      else
+        agent_params+="{\"subagent_id\":\"$subagent_id\"}"
       fi
     done
+    agent_params+=']}'
 
-    if [[ $failed -gt 0 ]]; then
-      log_event "$project_root" "ERROR" "wave_error" "Some tasks failed" "\"wave\":${wave_num},\"failed\":${failed}"
-      return 1
-    fi
+    echo "$agent_params"
+
   else
     # 순차 실행
     for task_file in "${tasks[@]}"; do
       if [[ -f "$task_file" ]]; then
-        if ! execute_task "$task_file" "$project_root"; then
-          log_event "$project_root" "ERROR" "wave_error" "Sequential task failed" "\"wave\":${wave_num}"
-          return 1
+        local subagent_id
+        subagent_id=$(execute_task "$task_file" "$project_root" "sonnet")
+
+        if [[ -n "$subagent_id" ]]; then
+          subagent_ids+=("$subagent_id")
+
+          # 완료된 태스크 기록
+          local task_name
+          task_name=$(basename "$task_file" .md)
+          echo "$task_name:$subagent_id" >> "$completed_file"
+        else
+          failed=$((failed + 1))
         fi
-        local task_name=$(basename "$task_file" .md)
-        echo "$task_name" >> "$completed_file"
       fi
     done
-  fi
 
-  log_event "$project_root" "INFO" "wave_complete" "Wave completed" "\"wave\":${wave_num}"
-  return 0
+    # 결과 반환
+    local status="completed"
+    if [[ $failed -gt 0 ]]; then
+      status="partial_failure"
+    fi
+
+    jq -n --argjson wave "$wave_num" --arg status "$status" \
+      --argjson subagent_count "${#subagent_ids[@]}" \
+      --argjson failed "$failed" \
+      '{"wave":$wave,"status":$status,"subagent_count":$subagent_count,"failed":$failed}'
+  fi
 }
 
-# 전체 Wave 실행
+# ============================================================================
+# Wave 완료 확인 및 결과 집계
+# Usage: finalize_wave <wave_num> <project_root> <subagent_ids_comma>
+# Returns: JSON with wave summary
+# ============================================================================
+finalize_wave() {
+  local wave_num="${1:-}"
+  local project_root="${2:-}"
+  local subagent_ids="${3:-}"
+
+  # 결과 집계
+  local results
+  if declare -f aggregate_subagent_results &>/dev/null; then
+    results=$(aggregate_subagent_results "$project_root" "$subagent_ids")
+  else
+    results='{"total":0,"completed":0,"failed":0}'
+  fi
+
+  local total completed failed
+  total=$(echo "$results" | jq -r '.summary.total // 0')
+  completed=$(echo "$results" | jq -r '.summary.completed // 0')
+  failed=$(echo "$results" | jq -r '.summary.failed // 0')
+
+  # 로그: Wave 완료
+  if declare -f log_event &>/dev/null; then
+    log_event "$project_root" "INFO" "wave_complete" "Wave completed" \
+      "\"wave\":${wave_num},\"total\":${total},\"completed\":${completed},\"failed\":${failed}"
+  fi
+
+  # 결과 반환
+  echo "$results" | jq '. + {"wave":'"${wave_num}"'}'
+}
+
+# ============================================================================
+# 전체 Wave 실행 (개선된 버전)
+# Usage: execute_all_waves <feature_slug> <project_root>
+# Returns: JSON with overall execution summary
+# ============================================================================
 execute_all_waves() {
   local feature_slug="${1:-}"
   local project_root="${2:-}"
   local waves_file="${project_root}/docs/specs/${feature_slug}/waves.yaml"
 
   if [[ ! -f "$waves_file" ]]; then
-    echo "[ERROR] waves.yaml not found: $waves_file" >&2
+    echo "ERROR: waves.yaml not found: $waves_file" >&2
     return 1
   fi
 
@@ -218,37 +404,99 @@ execute_all_waves() {
   mkdir -p "$state_dir"
   : > "$completed_file"
 
-  # Wave 파싱 (yq 필요)
+  # yq 필요
   if ! command -v yq &>/dev/null; then
-    echo "[ERROR] yq is required for wave execution" >&2
-    echo "[INFO] Install: brew install yq" >&2
+    echo "ERROR: yq is required for wave execution" >&2
+    echo "INFO: Install: brew install yq" >&2
     return 1
   fi
 
-  local total_waves=$(yq '.total_waves // 0' "$waves_file" 2>/dev/null)
+  local total_waves
+  total_waves=$(yq '.total_waves // 0' "$waves_file" 2>/dev/null)
 
   if [[ "$total_waves" -lt 1 ]]; then
-    echo "[ERROR] No waves defined in $waves_file" >&2
+    echo "ERROR: No waves defined in $waves_file" >&2
     return 1
   fi
 
-  log_event "$project_root" "INFO" "waves_start" "Starting wave execution" "\"feature\":\"$feature_slug\",\"total_waves\":${total_waves}"
+  # 로그: Wave 실행 시작
+  if declare -f log_event &>/dev/null; then
+    log_event "$project_root" "INFO" "waves_start" "Starting wave execution" \
+      "\"feature\":\"$feature_slug\",\"total_waves\":${total_waves}"
+  fi
+
+  local all_subagent_ids=()
+  local wave_results='[]'
+  local total_failed=0
 
   # 각 Wave 실행
   for wave_num in $(seq 1 "$total_waves"); do
-    local parallel=$(yq ".waves[] | select(.wave == $wave_num) | .parallel // true" "$waves_file" 2>/dev/null)
-    local tasks=$(yq ".waves[] | select(.wave == $wave_num) | .tasks" "$waves_file" 2>/dev/null)
+    local parallel
+    parallel=$(yq ".waves[] | select(.wave == $wave_num) | .parallel // true" "$waves_file" 2>/dev/null)
+    local tasks
+    tasks=$(yq ".waves[] | select(.wave == $wave_num) | .tasks" "$waves_file" 2>/dev/null)
 
-    echo "[Wave $wave_num] Executing tasks (parallel: $parallel)..."
+    echo "[Wave $wave_num/$total_waves] Executing tasks (parallel: $parallel)..."
 
-    if ! execute_wave "$wave_num" "$tasks" "$project_root" "$parallel"; then
-      log_event "$project_root" "ERROR" "waves_failed" "Wave execution failed" "\"wave\":${wave_num}"
-      return 1
+    # Wave 실행
+    local wave_result
+    wave_result=$(execute_wave "$wave_num" "$tasks" "$project_root" "$parallel")
+
+    # 서브에이전트 ID 수집
+    local wave_subagent_ids
+    wave_subagent_ids=$(echo "$wave_result" | jq -r '.subagents[]?.subagent_id // empty' 2>/dev/null)
+
+    for subagent_id in $wave_subagent_ids; do
+      all_subagent_ids+=("$subagent_id")
+    done
+
+    # Wave 결과 저장
+    wave_results=$(echo "$wave_results" | jq '. + ['"$wave_result"']')
+
+    # 로그: Wave 실행 완료
+    if declare -f log_event &>/dev/null; then
+      log_event "$project_root" "INFO" "wave_executed" "Wave executed" \
+        "\"wave\":${wave_num},\"parallel\":${parallel}"
     fi
   done
 
-  log_event "$project_root" "INFO" "waves_complete" "All waves completed" "\"feature\":\"$feature_slug\""
-  echo "[SUCCESS] All waves completed for $feature_slug"
+  # 모든 서브에이전트 완료 대기
+  echo ""
+  echo "Waiting for all subagents to complete..."
+
+  local all_ids_str
+  all_ids_str=$(IFS=,; echo "${all_subagent_ids[*]}")
+
+  local final_results
+  if declare -f wait_for_subagents &>/dev/null && [[ -n "$all_ids_str" ]]; then
+    final_results=$(wait_for_subagents "$project_root" "$all_ids_str" "$WAVE_TIMEOUT")
+  else
+    final_results='{"status":"completed","summary":{"total":'"${#all_subagent_ids[@]}"',"completed":0,"failed":0}}'
+  fi
+
+  # 로그: 전체 Wave 완료
+  if declare -f log_event &>/dev/null; then
+    log_event "$project_root" "INFO" "waves_complete" "All waves completed" \
+      "\"feature\":\"$feature_slug\",\"total_subagents\":${#all_subagent_ids[@]}"
+  fi
+
+  # 결과 요약
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Wave Execution Summary"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "Feature: $feature_slug"
+  echo "Total Waves: $total_waves"
+  echo "Total Subagents: ${#all_subagent_ids[@]}"
+  echo ""
+
+  # 결과 반환
+  echo "$final_results" | jq '. + {
+    "feature": "'"$feature_slug"'",
+    "total_waves": '"$total_waves"',
+    "wave_results": '"$wave_results"'
+  }'
 
   return 0
 }

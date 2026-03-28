@@ -19,6 +19,10 @@ if [[ -d "$LIB_DIR" ]]; then
   source "${LIB_DIR}/logging.sh"
   source "${LIB_DIR}/cleanup.sh"
   source "${LIB_DIR}/feature-sync.sh"
+  source "${LIB_DIR}/test-runner.sh"
+  source "${LIB_DIR}/verification-classes.sh"
+  source "${LIB_DIR}/subagent-spawner.sh"
+  source "${LIB_DIR}/state-machine.sh"
 fi
 
 # ============================================================================
