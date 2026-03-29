@@ -124,13 +124,14 @@ xml_to_md() {
   local content
   content=$(cat "$xml_file")
 
-  # Extract attributes
+  # Extract attributes using grep (POSIX compatible)
+  # Note: grep -o is POSIX compliant, -E for extended regex
   local task_id task_wave task_depends task_type task_priority
-  task_id=$(echo "$content" | sed -n 's/id="\([^"]*\)".*/\1/p' | head -1 || echo "")
-  task_wave=$(echo "$content" | sed -n 's/wave="\([^"]*\)".*/\1/p' | head -1 || echo "1")
-  task_depends=$(echo "$content" | sed -n 's/depends="\([^"]*\)".*/\1/p' | head -1 || echo "")
-  task_type=$(echo "$content" | sed -n 's/type="\([^"]*\)".*/\1/p' | head -1 || echo "implementation")
-  task_priority=$(echo "$content" | sed -n 's/priority="\([^"]*\)".*/\1/p' | head -1 || echo "medium")
+  task_id=$(echo "$content" | grep -oE 'id="[^"]*"' | head -1 | sed 's/id="//;s/"$//' || echo "")
+  task_wave=$(echo "$content" | grep -oE 'wave="[^"]*"' | head -1 | sed 's/wave="//;s/"$//' || echo "1")
+  task_depends=$(echo "$content" | grep -oE 'depends="[^"]*"' | head -1 | sed 's/depends="//;s/"$//' || echo "")
+  task_type=$(echo "$content" | grep -oE 'type="[^"]*"' | head -1 | sed 's/type="//;s/"$//' || echo "implementation")
+  task_priority=$(echo "$content" | grep -oE 'priority="[^"]*"' | head -1 | sed 's/priority="//;s/"$//' || echo "medium")
 
   # Extract elements (using sed for portability)
   local title description requirements action acceptance_criteria verify done notes
@@ -366,12 +367,22 @@ ${verify}
 }
 
 # Helper: Extract Markdown section content
+# Note: Using POSIX-compatible patterns for BSD/GNU sed compatibility
 extract_md_section() {
   local content="${1:-}"
   local section="${2:-}"
 
   # Extract content between ## Section and next ## or end
-  echo "$content" | sed -n "/^## ${section}$/,\$p" | sed '1d' | sed '/^## /,\$d' | sed '/^---$/d' | sed '/^\*_/d' | sed '/^_No/d'
+  # Using awk for reliable cross-platform section extraction
+  echo "$content" | awk -v sec="$section" '
+    BEGIN { found=0 }
+    $0 ~ "^## " sec "$" { found=1; next }
+    found && /^## / { exit }
+    found && /^---$/ { next }
+    found && /^\*_/ { next }
+    found && /^_No/ { next }
+    found { print }
+  '
 }
 
 # ============================================================================
@@ -477,11 +488,12 @@ parse_xml_task() {
 
   local id wave depends type priority title description requirements action acceptance_criteria verify done notes
 
-  id=$(echo "$content" | sed -n 's/id="\([^"]*\)".*/\1/p' | head -1)
-  wave=$(echo "$content" | sed -n 's/wave="\([^"]*\)".*/\1/p' | head -1)
-  depends=$(echo "$content" | sed -n 's/depends="\([^"]*\)".*/\1/p' | head -1)
-  type=$(echo "$content" | sed -n 's/type="\([^"]*\)".*/\1/p' | head -1)
-  priority=$(echo "$content" | sed -n 's/priority="\([^"]*\)".*/\1/p' | head -1)
+  # Extract attributes using grep (POSIX compatible)
+  id=$(echo "$content" | grep -oE 'id="[^"]*"' | head -1 | sed 's/id="//;s/"$//')
+  wave=$(echo "$content" | grep -oE 'wave="[^"]*"' | head -1 | sed 's/wave="//;s/"$//')
+  depends=$(echo "$content" | grep -oE 'depends="[^"]*"' | head -1 | sed 's/depends="//;s/"$//')
+  type=$(echo "$content" | grep -oE 'type="[^"]*"' | head -1 | sed 's/type="//;s/"$//')
+  priority=$(echo "$content" | grep -oE 'priority="[^"]*"' | head -1 | sed 's/priority="//;s/"$//')
   title=$(extract_xml_element "$content" "title")
   description=$(extract_xml_element "$content" "description")
   requirements=$(extract_xml_element "$content" "requirements")
@@ -495,11 +507,15 @@ parse_xml_task() {
   local files_json="[]"
   while IFS= read -r file; do
     [[ -n "$file" ]] && files_json=$(echo "$files_json" | jq --arg f "$file" '. += [$f]')
-  done < <(echo "$content" | sed -n 's/<file>\([^<]*\)/\1/p')
+  done < <(echo "$content" | grep -oE '<file>[^<]+</file>' | sed 's/<file>//;s/<\/file>//')
+
+  # Ensure wave is a valid number for --argjson
+  wave="${wave:-1}"
+  [[ ! "$wave" =~ ^[0-9]+$ ]] && wave=1
 
   jq -n \
     --arg id "${id:-}" \
-    --argjson wave "${wave:-1}" \
+    --argjson wave "$wave" \
     --arg depends "${depends:-}" \
     --arg type "${type:-implementation}" \
     --arg priority "${priority:-medium}" \

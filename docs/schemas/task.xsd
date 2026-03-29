@@ -1,13 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Task XML Schema for harness-engineering
-  Version: 1.0.0
-
-  Usage:
-    xmllint --schema docs/schemas/task.xsd docs/specs/<slug>/tasks/001.xml
-
-  Reference: GSD XML Prompt Format
--->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
   <!-- Root element -->
