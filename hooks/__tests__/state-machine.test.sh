@@ -141,6 +141,50 @@ test_get_current_phase() {
   teardown
 }
 
+test_set_feature_slug_syncs_cache() {
+  setup
+
+  init_state_machine "$TEST_DIR" "test-feature"
+  set_feature_slug "$TEST_DIR" "renamed-feature" > /dev/null
+
+  local state cache_file
+  state=$(get_state "$TEST_DIR")
+  cache_file="${TEST_DIR}/.harness/state/current-feature.txt"
+
+  if assert_json_value "$state" ".feature_slug" "renamed-feature" "Feature slug should update in state" && \
+     assert_file_exists "$cache_file" "Current feature cache should exist" && \
+     assert_equals "renamed-feature" "$(cat "$cache_file")" "Current feature cache should match"; then
+    pass "test_set_feature_slug_syncs_cache"
+  else
+    fail "test_set_feature_slug_syncs_cache"
+  fi
+
+  teardown
+}
+
+test_record_runtime_phase_state_syncs_cache() {
+  setup
+
+  init_state_machine "$TEST_DIR" "test-feature"
+  record_runtime_phase_state "$TEST_DIR" "plan" "strategist" "unit_test" > /dev/null
+
+  local state phase_file agent_file
+  state=$(get_state "$TEST_DIR")
+  phase_file="${TEST_DIR}/.harness/state/pdca-phase.txt"
+  agent_file="${TEST_DIR}/.harness/state/current-agent.txt"
+
+  if assert_json_value "$state" ".phase" "plan" "Runtime phase should update in state" && \
+     assert_json_value "$state" ".previous_phase" "clarify" "Previous phase should be captured" && \
+     assert_equals "plan" "$(cat "$phase_file")" "Phase cache should match" && \
+     assert_equals "strategist" "$(cat "$agent_file")" "Current agent cache should match"; then
+    pass "test_record_runtime_phase_state_syncs_cache"
+  else
+    fail "test_record_runtime_phase_state_syncs_cache"
+  fi
+
+  teardown
+}
+
 test_transition_state_valid() {
   setup
 
@@ -196,11 +240,21 @@ test_can_transition() {
 
   init_state_machine "$TEST_DIR" "test-feature"
 
+  cat > "${TEST_DIR}/docs/specs/test-feature/design.md" << 'EOF'
+# Design
+
+## 구현 순서
+- Task 1
+
+## 파일 변경
+- file.ts
+EOF
+
   # Valid transitions
   local can1 can2 can3
-  can1=$(can_transition "$TEST_DIR" "clarify" "plan")
-  can2=$(can_transition "$TEST_DIR" "plan" "design")
-  can3=$(can_transition "$TEST_DIR" "clarify" "wrapup")
+  can1=$(can_transition "$TEST_DIR" "clarify" "plan" 2>/dev/null || true)
+  can2=$(can_transition "$TEST_DIR" "plan" "design" 2>/dev/null || true)
+  can3=$(can_transition "$TEST_DIR" "clarify" "wrapup" 2>/dev/null || true)
 
   if [[ "$can1" == true* ]] && [[ "$can2" == true* ]] && [[ "$can3" == false* ]]; then
     pass "test_can_transition"
@@ -435,6 +489,8 @@ main() {
   # 테스트 실행
   test_init_state_machine
   test_get_current_phase
+  test_set_feature_slug_syncs_cache
+  test_record_runtime_phase_state_syncs_cache
   test_transition_state_valid
   test_transition_state_invalid
   test_can_transition

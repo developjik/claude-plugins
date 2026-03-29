@@ -38,7 +38,7 @@
 | `hooks/common.sh` | 11개 함수 추가 (+217줄) |
 | `hooks/session-start.sh` | 자동화 설정 초기화 로직 (+17줄) |
 | `hooks/on-agent-start.sh` | 단계 전환 승인 로직 (+43줄) |
-| `docs/features.md` | 기능 레지스트리 등록 |
+| `docs/analysis/features.md` | 기능 레지스트리 등록 |
 
 ### 🔧 추가된 함수 (common.sh)
 
@@ -89,7 +89,7 @@
 - [x] `README.md`: 자동화 레벨 섹션 추가
 - [x] `CHANGELOG.md`: v1.1.0 릴리즈 노트 작성
 - [x] `docs/templates/automation-config.md`: 설정 가이드 생성
-- [x] `docs/features.md`: 기능 레지스트리 상태 → Completed
+- [x] `docs/analysis/features.md`: 기능 레지스트리 상태 → Completed
 
 ## 6. 자동화 레벨별 동작 요약
 

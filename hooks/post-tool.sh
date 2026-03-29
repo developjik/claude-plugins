@@ -7,6 +7,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
+_harness_load_module "context-rot"
+_harness_load_module "feature-context"
+_harness_load_module "state-machine"
+
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 PAYLOAD=$(cat)
 HARNESS_DIR=$(harness_runtime_dir "$PAYLOAD")
@@ -36,6 +40,20 @@ case "$TOOL_NAME" in
       fi
       echo "[$TIMESTAMP] CHANGED $FILE_PATH $HASH" >> "${STATE_DIR}/changes.txt"
     fi
+
+    if [ -n "$FILE_PATH" ]; then
+      FEATURE_PATH="$FILE_PATH"
+      if [[ "$FEATURE_PATH" != /* ]]; then
+        FEATURE_PATH="${PROJECT_ROOT}/${FEATURE_PATH}"
+      fi
+
+      INFERRED_FEATURE=$(infer_feature_from_path "$FEATURE_PATH" 2>/dev/null || true)
+      if [ -n "$INFERRED_FEATURE" ]; then
+        set_current_feature "$PROJECT_ROOT" "$INFERRED_FEATURE" >/dev/null 2>&1 || true
+      fi
+    fi
+
+    sync_runtime_cache "$PROJECT_ROOT" >/dev/null 2>&1 || true
     ;;
   Bash|bash)
     # 실행 로깅

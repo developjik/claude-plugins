@@ -4,6 +4,14 @@
 #
 # DEPENDENCIES: feature-registry.sh, logging.sh
 
+FEATURE_SYNC_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# shellcheck source=feature-context.sh
+source "${FEATURE_SYNC_LIB_DIR}/feature-context.sh"
+# shellcheck source=feature-registry.sh
+source "${FEATURE_SYNC_LIB_DIR}/feature-registry.sh"
+# shellcheck source=phase-transition.sh
+source "${FEATURE_SYNC_LIB_DIR}/phase-transition.sh"
+
 # ============================================================================
 # PDCA 단계 → 상태 매핑
 # ============================================================================
@@ -48,7 +56,8 @@ sync_feature_registry() {
   local project_root="${1:-}"
   local feature_slug="${2:-}"
   local phase="${3:-}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     printf '[INFO] Feature registry not found: %s\n' "$features_file" >&2
@@ -87,7 +96,8 @@ update_feature_status_from_sync() {
   local feature_slug="${2:-}"
   local new_status="${3:-}"
   local old_status="${4:-}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     return 1
@@ -145,7 +155,8 @@ register_feature_from_sync() {
   local project_root="${1:-}"
   local feature_slug="${2:-}"
   local status="${3:-Planning}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     return 1
@@ -212,9 +223,8 @@ register_feature_from_sync() {
 # Usage: sync_all_active_features <project_root>
 sync_all_active_features() {
   local project_root="${1:-}"
-  local harness_dir="${project_root}/.harness"
-  local state_dir="${harness_dir}/state"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     return 0
@@ -222,11 +232,11 @@ sync_all_active_features() {
 
   # 현재 진행 중인 기능들 조회
   local current_feature
-  current_feature=$(cat "${state_dir}/current-feature.txt" 2>/dev/null || echo "")
+  current_feature=$(get_current_feature "$project_root")
 
   if [ -n "$current_feature" ]; then
     local current_phase
-    current_phase=$(cat "${state_dir}/pdca-phase.txt" 2>/dev/null || echo "")
+    current_phase=$(get_runtime_phase "$project_root")
     sync_feature_registry "$project_root" "$current_feature" "$current_phase"
   fi
 
@@ -243,7 +253,8 @@ detect_feature_conflicts() {
   local project_root="${1:-}"
   local modified_file="${2:-}"
   local current_feature="${3:-}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ] || [ -z "$current_feature" ]; then
     return 0

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# validate.sh — Harness Engineering 전체 검증 스크립트
-# 사용법: bash scripts/validate.sh [--quick]
+# validate.sh — Harness Engineering 검증 스크립트
+# 사용법: bash scripts/validate.sh [--quick|--full]
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,9 +15,73 @@ NC='\033[0m'
 ERRORS=0
 WARNINGS=0
 
+MODE="${1:---quick}"
+
+if [[ "$MODE" != "--quick" && "$MODE" != "--full" ]]; then
+  echo "Usage: bash scripts/validate.sh [--quick|--full]"
+  exit 1
+fi
+
+run_test_suite() {
+  local test_file="${1:-}"
+  local label="${2:-$(basename "$test_file")}"
+
+  if bash "$test_file" >/tmp/harness-validate-test.log 2>&1; then
+    echo -e "${GREEN}[OK]${NC} ${label}"
+    return 0
+  fi
+
+  echo -e "${RED}[ERROR]${NC} ${label}"
+  tail -20 /tmp/harness-validate-test.log || true
+  return 1
+}
+
+run_quick_test_suites() {
+  local test_file
+  local quick_suites=(
+    "hooks/__tests__/common.test.sh"
+    "hooks/__tests__/feature-context.test.sh"
+    "hooks/__tests__/hook-flow.test.sh"
+    "hooks/__tests__/state-machine.test.sh"
+    "hooks/__tests__/test-runner.test.sh"
+  )
+
+  for test_file in "${quick_suites[@]}"; do
+    if [[ ! -f "$test_file" ]]; then
+      echo -e "${YELLOW}[WARN]${NC} Missing core test: $test_file"
+      WARNINGS=$((WARNINGS + 1))
+      continue
+    fi
+
+    if ! run_test_suite "$test_file" "$(basename "$test_file")"; then
+      ERRORS=$((ERRORS + 1))
+    fi
+  done
+}
+
+run_full_test_suites() {
+  local test_file
+  local ran_any=false
+
+  for test_file in hooks/__tests__/*.test.sh; do
+    [[ -f "$test_file" ]] || continue
+    ran_any=true
+
+    if ! run_test_suite "$test_file" "$(basename "$test_file")"; then
+      ERRORS=$((ERRORS + 1))
+    fi
+  done
+
+  if [[ "$ran_any" == false ]]; then
+    echo -e "${YELLOW}[WARN]${NC} No test suites found"
+    WARNINGS=$((WARNINGS + 1))
+  fi
+}
+
 echo "========================================"
 echo "Harness Engineering Validation"
 echo "========================================"
+echo "Mode: ${MODE#--}"
 echo ""
 
 # ============================================================================
@@ -236,19 +300,14 @@ echo -e "${GREEN}[OK]${NC} $template_count templates found"
 # ============================================================================
 
 echo ""
-echo "--- 7. Unit Tests ---"
+echo "--- 7. Test Suites ---"
 
-if [[ -f "hooks/__tests__/common.test.sh" ]]; then
-  echo "Running unit tests..."
-  if bash hooks/__tests__/common.test.sh 2>&1 | tail -10; then
-    echo -e "${GREEN}[OK]${NC} Unit tests passed"
-  else
-    echo -e "${RED}[ERROR]${NC} Unit tests failed"
-    ERRORS=$((ERRORS + 1))
-  fi
+if [[ "$MODE" == "--quick" ]]; then
+  echo "Running core regression suites..."
+  run_quick_test_suites
 else
-  echo -e "${YELLOW}[WARN]${NC} No unit tests found"
-  WARNINGS=$((WARNINGS + 1))
+  echo "Running full test suite..."
+  run_full_test_suites
 fi
 
 # ============================================================================

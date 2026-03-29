@@ -23,6 +23,7 @@ allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion
 
 #### 1.1. Feature Slug 추출
 `$ARGUMENTS`에서 기능명(Feature Slug)을 추출합니다. (kebab-case, 예: `user-auth`)
+추출 직후 `.harness/engine/state.json`과 `.harness/state/current-feature.txt`에 현재 feature context를 초기화합니다.
 
 #### 1.2. 요청 유형 분류
 - **신규 기능**: 새로운 기능 개발
@@ -103,6 +104,7 @@ Strategist 에이전트의 인지 모드를 활용하여 다음 항목을 파악
 
 `docs/templates/clarify.md` 템플릿을 읽고 내용을 채운 뒤,
 **`docs/specs/<feature-slug>/clarify.md`** 경로에 저장합니다.
+저장 직후 현재 feature context가 유지되는지 확인합니다.
 
 ## 자동화 레벨별 동작
 

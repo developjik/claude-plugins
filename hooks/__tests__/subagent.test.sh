@@ -373,6 +373,39 @@ test_aggregate_subagent_results() {
   teardown
 }
 
+test_wait_for_subagents() {
+  setup
+
+  local task_file="${TEST_DIR}/task.md"
+  echo "# Task" > "$task_file"
+
+  local id1 id2
+  id1=$(spawn_subagent "$task_file" "$TEST_DIR" "sonnet")
+  id2=$(spawn_subagent "$task_file" "$TEST_DIR" "haiku")
+
+  start_subagent_execution "$id1" "$TEST_DIR"
+  complete_subagent "$id1" "$TEST_DIR" "completed"
+
+  start_subagent_execution "$id2" "$TEST_DIR"
+  complete_subagent "$id2" "$TEST_DIR" "failed"
+
+  local results
+  results=$(wait_for_subagents "$TEST_DIR" "${id1},${id2}" 1)
+
+  if assert_json_value "$results" ".status" "partial_failure" "Overall status should reflect failures" && \
+     assert_json_value "$results" ".summary.total" "2" "Total should be 2" && \
+     assert_json_value "$results" ".summary.completed" "1" "Completed should be 1" && \
+     assert_json_value "$results" ".summary.failed" "1" "Failed should be 1" && \
+     assert_json_value "$results" ".summary.running" "0" "Running should be 0" && \
+     assert_json_value "$results" ".summary.pending" "0" "Pending should be 0"; then
+    pass "test_wait_for_subagents"
+  else
+    fail "test_wait_for_subagents"
+  fi
+
+  teardown
+}
+
 test_generate_agent_params() {
   setup
 
@@ -458,6 +491,7 @@ main() {
   test_complete_subagent
   test_list_active_subagents
   test_aggregate_subagent_results
+  test_wait_for_subagents
   test_generate_agent_params
   test_cleanup_completed_subagents
 

@@ -74,6 +74,9 @@ _harness_load_module "json-utils"
 # logging: 로깱 유틸리티 (필수)
 _harness_load_module "logging"
 
+# runtime-paths: .harness 경로 표준화 (필수)
+_harness_load_module "runtime-paths"
+
 # ============================================================================
 # 지연 로드될 모듈들 (사용 시점에 자동 로드)
 # 실제 사용되는 함수에서 필요한 모듈을 호출
@@ -116,7 +119,11 @@ harness_project_root() {
 harness_runtime_dir() {
   local root
   root=$(harness_project_root "${1:-}")
-  printf '%s/.harness\n' "$root"
+  if declare -f harness_runtime_dir_from_root >/dev/null 2>&1; then
+    harness_runtime_dir_from_root "$root"
+  else
+    printf '%s/.harness\n' "$root"
+  fi
 }
 
 ensure_runtime_git_exclude() {

@@ -9,8 +9,13 @@
 # ============================================================================
 
 # 기본 자동화 레벨
-readonly DEFAULT_AUTOMATION_LEVEL="L2"
-readonly DEFAULT_TRUST_SCORE="0.5"
+if [[ -z "${DEFAULT_AUTOMATION_LEVEL:-}" ]]; then
+  readonly DEFAULT_AUTOMATION_LEVEL="L2"
+fi
+
+if [[ -z "${DEFAULT_TRUST_SCORE:-}" ]]; then
+  readonly DEFAULT_TRUST_SCORE="0.5"
+fi
 
 # ============================================================================
 # 자동화 레벨 조회
@@ -81,6 +86,7 @@ get_trust_score() {
 # 단계 전환 승인 필요 여부 확인
 # Usage: should_approve_transition <level> <transition>
 # transition: clarify_to_plan, plan_to_design, design_to_do, do_to_check, check_to_wrapup
+# implement/check 명칭도 내부적으로 동일 전환으로 처리
 # Returns: true, false, if_uncertain
 # ============================================================================
 should_approve_transition() {
@@ -123,8 +129,8 @@ get_transition_name() {
   case "${from_phase}_${to_phase}" in
     clarify_plan) echo "clarify_to_plan" ;;
     plan_design) echo "plan_to_design" ;;
-    design_do) echo "design_to_do" ;;
-    do_check) echo "do_to_check" ;;
+    design_do|design_implement) echo "design_to_do" ;;
+    do_check|implement_check) echo "do_to_check" ;;
     check_wrapup) echo "check_to_wrapup" ;;
     *) echo "" ;;
   esac
@@ -209,7 +215,15 @@ log_decision() {
 
   local log_entry
   if [[ -n "$details" ]]; then
-    log_entry=$(printf '{"timestamp":"%s","event":"%s",%s}' "$timestamp" "$event_type" "${details:1:${#details}-2}")
+    if [[ "$details" == \{* ]]; then
+      log_entry=$(jq -cn \
+        --arg ts "$timestamp" \
+        --arg event "$event_type" \
+        --argjson details "$details" \
+        '$details + {timestamp: $ts, event: $event}')
+    else
+      log_entry=$(printf '{"timestamp":"%s","event":"%s",%s}' "$timestamp" "$event_type" "$details")
+    fi
   else
     log_entry=$(printf '{"timestamp":"%s","event":"%s"}' "$timestamp" "$event_type")
   fi

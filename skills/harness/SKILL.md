@@ -53,13 +53,16 @@ Clarify → Plan → Design → Do → Check(+Iterate) → Wrap-up
 - clarify.md 참조 (있는 경우)
 - 기능명(`feature-slug`) 추출, 요구사항 분석
 - `docs/specs/<feature-slug>/plan.md` 생성
+- 실행 전 현재 feature context를 `<feature-slug>`로 맞춥니다.
 
 **design**: `/design <feature-slug>` 스킬을 호출합니다.
 - Plan 기반 코드 변경 계획 수립
 - `docs/specs/<feature-slug>/design.md` 생성
+- 실행 전 현재 feature context가 비어 있지 않은지 확인합니다.
 
 **do**: `/implement <feature-slug>` 스킬을 호출합니다.
 - RED-GREEN-REFACTOR TDD 구현
+- 구현 중 문서/코드 편집은 동일 feature context를 유지해야 합니다.
 
 **check**: `/check <feature-slug>` 스킬을 호출합니다.
 - 코드 리뷰 + 계획 일치 검증

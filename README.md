@@ -2,7 +2,7 @@
 
 확장 PDCA(Plan→Design→Do→Check→Wrap-up) 기반 AI 소프트웨어 개발 자동화 Claude Code 플러그인.
 
-6개 전문 에이전트(인지 모드)와 12개 실행 스킬로 체계적인 개발 워크플로우를 제공합니다.
+6개 전문 에이전트(인지 모드)와 13개 실행 스킬로 체계적인 개발 워크플로우를 제공합니다.
 
 ## 🎯 누구를 위한 것인가?
 
@@ -42,7 +42,7 @@ AI가 멋대로 해석해서 엉뚱한 코드를 만드는 경험, 있으시죠?
 ## 한눈에 보기
 
 - **6개 에이전트**: `strategist`, `architect`, `engineer`, `guardian`, `librarian`, `debugger`
-- **12개 스킬**: `clarify`, `plan`, `design`, `implement`, `check`, `wrapup`, `harness`, `debug`, `fullrun`, `grill-me`, `delegate`, `recover`
+- **13개 스킬**: `clarify`, `plan`, `design`, `implement`, `check`, `wrapup`, `harness`, `debug`, `fullrun`, `quick`, `grill-me`, `delegate`, `recover`
 - **훅 자동화**: 위험 명령 차단, 파일 백업, 변경 추적, PDCA 단계 자동 추적
 - **P0 Foundation**: 다중 프레임워크 테스트 실행, 서브에이전트 스포닝, 상태 머신 엔진
 - **P1 Enhancement**: 2단계 리뷰, 스킬 평가, 크래시 복구, 브라우저 테스트
@@ -295,7 +295,7 @@ detect_circular_dependencies '[...]'
 harness-engineering/
 ├── .claude-plugin/plugin.json     # 플러그인 매니페스트
 ├── agents/                         # 에이전트 (6개)
-├── skills/                         # 스킬 (12개)
+├── skills/                         # 스킬 (13개)
 │   ├── clarify/SKILL.md
 │   ├── plan/SKILL.md
 │   ├── design/SKILL.md
@@ -305,6 +305,7 @@ harness-engineering/
 │   ├── harness/SKILL.md
 │   ├── debug/SKILL.md
 │   ├── fullrun/SKILL.md
+│   ├── quick/SKILL.md
 │   ├── grill-me/SKILL.md
 │   ├── delegate/SKILL.md          # NEW: 태스크 위임
 │   └── recover/SKILL.md           # NEW: 상태 복구

@@ -22,6 +22,7 @@ requires: clarify
 
 Plan 스킬은 `docs/specs/<feature-slug>/clarify.md` 가 존재하면 자동으로 참조합니다.
 clarify.md가 없으면 경고 후 진행 여부를 확인합니다.
+Plan 시작 시 `.harness/engine/state.json`의 `feature_slug`가 현재 `<feature-slug>`와 일치하도록 초기화하거나 복구합니다.
 
 ## 프로세스
 

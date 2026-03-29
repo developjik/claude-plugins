@@ -52,7 +52,7 @@ assert_json_key() {
   local message="${3:-}"
   ((tests_run++))
 
-  if echo "$json" | jq -e ".$key" &>/dev/null; then
+  if echo "$json" | jq -e --arg key "$key" 'has($key)' &>/dev/null; then
     ((tests_passed++))
     echo "  ✓ $message"
   else
@@ -119,6 +119,7 @@ test_browser_is_connected() {
   echo "Testing browser_is_connected..."
 
   _init_browser_state "$TEST_DIR"
+  _update_browser_state "$TEST_DIR" "connected" "false"
 
   # Initially not connected
   if browser_is_connected "$TEST_DIR" 2>/dev/null; then

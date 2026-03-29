@@ -10,6 +10,7 @@ source "${SCRIPT_DIR}/common.sh"
 _harness_load_module "automation-level"
 _harness_load_module "context-rot"
 _harness_load_module "cleanup"
+_harness_load_module "feature-context"
 
 PAYLOAD=$(cat)
 HARNESS_DIR=$(harness_runtime_dir "$PAYLOAD")
@@ -37,9 +38,16 @@ if command -v git &>/dev/null && git -C "$PROJECT_ROOT" rev-parse --is-inside-wo
   fi
 fi
 
-# PDCA 상태 초기화
-echo "idle" > "${STATE_DIR}/pdca-phase.txt"
-echo "" > "${STATE_DIR}/current-agent.txt"
+# PDCA 상태 캐시 초기화
+ensure_harness_runtime_subdirs "$PROJECT_ROOT"
+if [[ -f "$(harness_engine_dir_from_root "$PROJECT_ROOT")/state.json" ]]; then
+  safe_sync_runtime_cache "$PROJECT_ROOT" >/dev/null 2>&1 || true
+else
+  echo "idle" > "$(harness_phase_file "$PROJECT_ROOT")"
+  : > "$(harness_current_feature_file "$PROJECT_ROOT")"
+fi
+echo "" > "$(harness_current_agent_file "$PROJECT_ROOT")"
+: > "$(harness_phase_start_file "$PROJECT_ROOT")"
 
 # ============================================================================
 # 자동화 레벨 설정 초기화
@@ -48,7 +56,7 @@ init_automation_config "$PROJECT_ROOT"
 
 # 현재 자동화 레벨 조회 및 기록
 CURRENT_LEVEL=$(get_automation_level "$PROJECT_ROOT")
-echo "$CURRENT_LEVEL" > "${STATE_DIR}/current-level.txt"
+echo "$CURRENT_LEVEL" > "$(harness_current_level_file "$PROJECT_ROOT")"
 
 # 신뢰 점수 기반 추천 레벨 확인
 TRUST_SCORE=$(get_trust_score "$PROJECT_ROOT")

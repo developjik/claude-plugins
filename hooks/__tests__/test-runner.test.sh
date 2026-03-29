@@ -288,7 +288,7 @@ test_summarize_test_results() {
   }'
 
   local summary
-  summary=$(summarize_test_results "$results")
+  summary=$(summarize_test_results "$results" 2>/dev/null || true)
 
   if assert_contains "10" "$summary" "Should show passed count" && \
      assert_contains "2" "$summary" "Should show failed count"; then

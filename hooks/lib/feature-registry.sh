@@ -4,6 +4,24 @@
 #
 # DEPENDENCIES: json-utils.sh, logging.sh
 
+# 기능 레지스트리 파일 경로 조회
+# docs/features.md 우선, 없으면 docs/analysis/features.md 사용
+feature_registry_file() {
+  local project_root="${1:-}"
+
+  if [[ -f "${project_root}/docs/features.md" ]]; then
+    printf '%s/docs/features.md\n' "$project_root"
+    return 0
+  fi
+
+  if [[ -f "${project_root}/docs/analysis/features.md" ]]; then
+    printf '%s/docs/analysis/features.md\n' "$project_root"
+    return 0
+  fi
+
+  printf '%s/docs/features.md\n' "$project_root"
+}
+
 # ============================================================================
 # 기능 레지스트리 관련 함수
 # ============================================================================
@@ -12,7 +30,8 @@
 # Usage: check_feature_registry <project_root>
 check_feature_registry() {
   local project_root="${1:-}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     printf '[WARNING] Feature registry not found: %s\n' "$features_file" >&2
@@ -27,7 +46,8 @@ check_feature_registry() {
 get_feature_status() {
   local project_root="${1:-}"
   local feature_slug="${2:-}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     printf ''
@@ -43,7 +63,8 @@ get_feature_status() {
 check_dependency_conflicts() {
   local project_root="${1:-}"
   local current_feature="${2:-}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     return 0
@@ -66,7 +87,8 @@ detect_file_conflicts() {
   local project_root="${1:-}"
   local modified_file="${2:-}"
   local current_feature="${3:-}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     return 0
@@ -112,7 +134,8 @@ update_feature_status() {
   local project_root="${1:-}"
   local feature_slug="${2:-}"
   local new_status="${3:-}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     printf '[WARNING] Feature registry not found, cannot update status\n' >&2
@@ -140,7 +163,8 @@ register_feature() {
   local feature_slug="${2:-}"
   local title="${3:-}"
   local dependencies="${4:--}"
-  local features_file="${project_root}/docs/features.md"
+  local features_file
+  features_file=$(feature_registry_file "$project_root")
 
   if [ ! -f "$features_file" ]; then
     printf '[WARNING] Feature registry not found, cannot register feature\n' >&2

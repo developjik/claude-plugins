@@ -8,34 +8,38 @@
 # 로깅 설정
 # ============================================================================
 
-# 에러 코드 체계
-readonly E_SUCCESS=0
-readonly E_GENERAL=1
-readonly E_CONFIG=2
-readonly E_DEPENDENCY=3
-readonly E_EXECUTION=4
-readonly E_VALIDATION=5
+if [[ -z "${LOGGING_MODULE_INITIALIZED:-}" ]]; then
+  readonly LOGGING_MODULE_INITIALIZED=1
 
-# 로그 레벨
-readonly LOG_LEVEL_DEBUG=0
-readonly LOG_LEVEL_INFO=1
-readonly LOG_LEVEL_WARN=2
-readonly LOG_LEVEL_ERROR=3
+  # 에러 코드 체계
+  readonly E_SUCCESS=0
+  readonly E_GENERAL=1
+  readonly E_CONFIG=2
+  readonly E_DEPENDENCY=3
+  readonly E_EXECUTION=4
+  readonly E_VALIDATION=5
 
-# 현재 로그 레벨 (기본값: INFO)
-readonly CURRENT_LOG_LEVEL="${LOG_LEVEL_INFO}"
+  # 로그 레벨
+  readonly LOG_LEVEL_DEBUG=0
+  readonly LOG_LEVEL_INFO=1
+  readonly LOG_LEVEL_WARN=2
+  readonly LOG_LEVEL_ERROR=3
 
-# 민감 정보 패턴 (마스킹 대상)
-readonly SENSITIVE_PATTERNS=(
-  "password"
-  "token"
-  "api_key"
-  "secret"
-  "credential"
-  "auth"
-  "--key"
-  "--pass"
-)
+  # 현재 로그 레벨 (기본값: INFO)
+  readonly CURRENT_LOG_LEVEL="${LOG_LEVEL_INFO}"
+
+  # 민감 정보 패턴 (마스킹 대상)
+  readonly SENSITIVE_PATTERNS=(
+    "password"
+    "token"
+    "api_key"
+    "secret"
+    "credential"
+    "auth"
+    "--key"
+    "--pass"
+  )
+fi
 
 # ============================================================================
 # 트레이스 ID 생성

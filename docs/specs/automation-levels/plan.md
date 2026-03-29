@@ -163,9 +163,11 @@
 ├── logs/
 │   └── decisions.jsonl  # 결정 로그 (신규)
 ├── state/
-│   ├── current-phase    # 현재 PDCA 단계
-│   ├── current-agent    # 현재 에이전트
-│   └── current-level    # 현재 적용 레벨 (신규)
+│   ├── pdca-phase.txt   # 현재 PDCA 단계 캐시
+│   ├── current-agent.txt # 현재 에이전트 캐시
+│   └── current-level.txt # 현재 적용 레벨 (신규)
+├── engine/
+│   └── state.json       # 현재 상태 (SSOT)
 └── backups/
 ```
 

@@ -12,6 +12,12 @@
 
 set -euo pipefail
 
+STATE_MACHINE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+if [[ -f "${STATE_MACHINE_LIB_DIR}/runtime-paths.sh" ]]; then
+  # shellcheck source=runtime-paths.sh
+  source "${STATE_MACHINE_LIB_DIR}/runtime-paths.sh"
+fi
+
 # ============================================================================
 # 상수
 # ============================================================================
@@ -188,7 +194,11 @@ get_valid_transitions() {
 
 engine_dir() {
   local project_root="${1:-}"
-  echo "${project_root}/${ENGINE_DIR}"
+  if declare -f harness_engine_dir_from_root >/dev/null 2>&1; then
+    harness_engine_dir_from_root "$project_root"
+  else
+    echo "${project_root}/${ENGINE_DIR}"
+  fi
 }
 
 state_file() {
@@ -255,6 +265,21 @@ EOF
   fi
 }
 
+_state_jq_update() {
+  local project_root="${1:-}"
+  shift
+
+  local state_path
+  state_path=$(state_file "$project_root")
+
+  if [[ ! -f "$state_path" ]] || ! command -v jq >/dev/null 2>&1; then
+    return 1
+  fi
+
+  local tmp="${state_path}.tmp"
+  jq "$@" "$state_path" > "$tmp" && mv "$tmp" "$state_path"
+}
+
 # ============================================================================
 # 상태 조회
 # Usage: get_state <project_root>
@@ -280,6 +305,150 @@ get_state() {
 get_current_phase() {
   local project_root="${1:-}"
   get_state "$project_root" | jq -r '.phase // "unknown"'
+}
+
+get_feature_slug() {
+  local project_root="${1:-}"
+  get_state "$project_root" | jq -r '.feature_slug // empty'
+}
+
+set_feature_slug() {
+  local project_root="${1:-}"
+  local feature_slug="${2:-}"
+
+  if [[ ! -f "$(state_file "$project_root")" ]]; then
+    init_state_machine "$project_root" "$feature_slug" >/dev/null 2>&1
+  fi
+
+  local timestamp
+  timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+  _state_jq_update "$project_root" \
+    --arg feature "$feature_slug" \
+    --arg ts "$timestamp" \
+    '.feature_slug = $feature |
+     .metadata.updated_at = $ts' || return 1
+
+  sync_runtime_cache "$project_root" >/dev/null 2>&1 || true
+  printf '%s\n' "$feature_slug"
+}
+
+_iso8601_to_epoch() {
+  local timestamp="${1:-}"
+
+  if [[ -z "$timestamp" ]]; then
+    return 1
+  fi
+
+  if date -j -f "%Y-%m-%dT%H:%M:%SZ" "$timestamp" "+%s" >/dev/null 2>&1; then
+    date -j -f "%Y-%m-%dT%H:%M:%SZ" "$timestamp" "+%s"
+    return 0
+  fi
+
+  if date -d "$timestamp" "+%s" >/dev/null 2>&1; then
+    date -d "$timestamp" "+%s"
+    return 0
+  fi
+
+  return 1
+}
+
+sync_runtime_cache() {
+  local project_root="${1:-}"
+  local state
+  state=$(get_state "$project_root")
+
+  if echo "$state" | jq -e '.error' >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local state_dir phase_file feature_file agent_file phase_start_file
+  if declare -f harness_state_dir_from_root >/dev/null 2>&1; then
+    state_dir=$(harness_state_dir_from_root "$project_root")
+    phase_file=$(harness_phase_file "$project_root")
+    feature_file=$(harness_current_feature_file "$project_root")
+    agent_file=$(harness_current_agent_file "$project_root")
+    phase_start_file=$(harness_phase_start_file "$project_root")
+  else
+    state_dir="${project_root}/.harness/state"
+    phase_file="${state_dir}/pdca-phase.txt"
+    feature_file="${state_dir}/current-feature.txt"
+    agent_file="${state_dir}/current-agent.txt"
+    phase_start_file="${state_dir}/phase-start-time.txt"
+  fi
+
+  mkdir -p "$state_dir"
+
+  local phase feature_slug actor entered_at entered_at_epoch
+  phase=$(echo "$state" | jq -r '.phase // "idle"')
+  feature_slug=$(echo "$state" | jq -r '.feature_slug // empty')
+  actor=$(echo "$state" | jq -r '.actor // empty')
+  entered_at=$(echo "$state" | jq -r '.entered_at // empty')
+  entered_at_epoch=$(_iso8601_to_epoch "$entered_at" 2>/dev/null || true)
+
+  printf '%s\n' "${phase:-idle}" > "$phase_file"
+  printf '%s\n' "$feature_slug" > "$feature_file"
+  printf '%s\n' "$actor" > "$agent_file"
+
+  if [[ -n "$entered_at_epoch" ]]; then
+    printf '%s\n' "$entered_at_epoch" > "$phase_start_file"
+  elif [[ ! -f "$phase_start_file" ]]; then
+    printf '%s\n' "$(date +%s)" > "$phase_start_file"
+  fi
+}
+
+init_or_repair_state_machine() {
+  local project_root="${1:-}"
+  local feature_slug="${2:-}"
+
+  if [[ ! -f "$(state_file "$project_root")" ]]; then
+    init_state_machine "$project_root" "$feature_slug" >/dev/null 2>&1
+  fi
+
+  if [[ -n "$feature_slug" ]]; then
+    local current_feature
+    current_feature=$(get_feature_slug "$project_root" 2>/dev/null || true)
+    if [[ "$current_feature" != "$feature_slug" ]]; then
+      set_feature_slug "$project_root" "$feature_slug" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  sync_runtime_cache "$project_root" >/dev/null 2>&1 || true
+}
+
+record_runtime_phase_state() {
+  local project_root="${1:-}"
+  local phase="${2:-}"
+  local actor="${3:-claude}"
+  local reason="${4:-runtime_phase_sync}"
+
+  case "$phase" in
+    clarify|plan|design|implement|check|wrapup|complete) ;;
+    *) return 0 ;;
+  esac
+
+  init_or_repair_state_machine "$project_root" "$(get_feature_slug "$project_root" 2>/dev/null || true)" >/dev/null 2>&1 || true
+
+  local current_phase timestamp
+  current_phase=$(get_current_phase "$project_root" 2>/dev/null || echo "unknown")
+  timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+  _state_jq_update "$project_root" \
+    --arg phase "$phase" \
+    --arg actor "$actor" \
+    --arg ts "$timestamp" \
+    '.previous_phase = (if .phase == $phase then .previous_phase else .phase end) |
+     .phase = $phase |
+     .entered_at = $ts |
+     .last_transition_at = $ts |
+     .actor = $actor |
+     .metadata.updated_at = $ts' || return 1
+
+  if [[ "$current_phase" != "$phase" ]]; then
+    log_transition "$project_root" "runtime_phase_sync" "$current_phase" "$phase" "$reason"
+  fi
+
+  sync_runtime_cache "$project_root" >/dev/null 2>&1 || true
+  printf '%s\n' "$phase"
 }
 
 # ============================================================================
@@ -487,9 +656,10 @@ create_snapshot() {
 
   local snapshots_dir
   snapshots_dir=$(snapshots_dir "$project_root")
-  local timestamp
+  local timestamp entropy
   timestamp=$(date +%Y%m%d_%H%M%S)
-  local snapshot_id="snap_${phase}_${timestamp}"
+  entropy="${RANDOM}"
+  local snapshot_id="snap_${phase}_${timestamp}_${entropy}"
   local snapshot_file="${snapshots_dir}/${snapshot_id}.json"
 
   # 현재 상태와 관련 파일들 스냅샷
@@ -731,9 +901,10 @@ create_snapshot_without_lock() {
 
   local snapshots_dir
   snapshots_dir=$(snapshots_dir "$project_root")
-  local timestamp
+  local timestamp entropy
   timestamp=$(date +%Y%m%d_%H%M%S)
-  local snapshot_id="snap_${phase}_${timestamp}"
+  entropy="${RANDOM}"
+  local snapshot_id="snap_${phase}_${timestamp}_${entropy}"
   local snapshot_file="${snapshots_dir}/${snapshot_id}.json"
 
   # 현재 상태와 관련 파일들 스냅샷
@@ -805,7 +976,7 @@ log_transition() {
   mkdir -p "$(dirname "$transitions_file")"
 
   local entry
-  entry=$(jq -n \
+  entry=$(jq -cn \
     --arg ts "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
     --arg event "$event" \
     --arg from "$from" \
@@ -841,7 +1012,7 @@ get_transition_history() {
 save_check_results() {
   local project_root="${1:-}"
   local match_rate="${2:-0}"
-  local details="${3:-{}}"
+  local details="${3:-"{}"}"
 
   local state_file
   state_file=$(state_file "$project_root")

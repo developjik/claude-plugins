@@ -29,7 +29,7 @@ set -euo pipefail
 ensure_state_machine_loaded() {
   if ! declare -f get_state &>/dev/null; then
     local lib_dir
-    lib_dir="$(cd "$(dirname "${BASH_SOURCE:-0}")" && pwd)"
+    lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
     if [[ -f "${lib_dir}/state-machine.sh" ]]; then
       # shellcheck source=state-machine.sh
@@ -47,7 +47,7 @@ ensure_state_machine_loaded() {
 ensure_crash_recovery_loaded() {
   if ! declare -f detect_stuck_state &>/dev/null; then
     local lib_dir
-    lib_dir="$(cd "$(dirname "${BASH_SOURCE:-0}")" && pwd)"
+    lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
     # state-machine.sh 먼저 로드 (의존성)
     ensure_state_machine_loaded
@@ -80,6 +80,16 @@ safe_get_current_phase() {
   get_current_phase "$@"
 }
 
+safe_get_feature_slug() {
+  ensure_state_machine_loaded
+  get_feature_slug "$@"
+}
+
+safe_set_feature_slug() {
+  ensure_state_machine_loaded
+  set_feature_slug "$@"
+}
+
 # 안전한 상태 전환
 safe_transition_state() {
   ensure_state_machine_loaded
@@ -90,6 +100,21 @@ safe_transition_state() {
 safe_create_snapshot() {
   ensure_state_machine_loaded
   create_snapshot "$@"
+}
+
+safe_sync_runtime_cache() {
+  ensure_state_machine_loaded
+  sync_runtime_cache "$@"
+}
+
+safe_init_or_repair_state_machine() {
+  ensure_state_machine_loaded
+  init_or_repair_state_machine "$@"
+}
+
+safe_record_runtime_phase_state() {
+  ensure_state_machine_loaded
+  record_runtime_phase_state "$@"
 }
 
 # 안전한 롤백

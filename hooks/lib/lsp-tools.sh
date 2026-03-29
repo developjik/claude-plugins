@@ -98,19 +98,22 @@ detect_language_server() {
   local server_cmd
   server_cmd=$(get_lsp_server "$language")
 
-  if [[ -n "$server_cmd" ]]; then
-    # 서버 설치 확인
-    local server_name
-    server_name=$(echo "$server_cmd" | cut -d' ' -f1)
+  echo "$server_cmd"
+  return 0
+}
 
-    if command -v "$server_name" &>/dev/null; then
-      echo "$server_cmd"
-      return 0
-    fi
+language_server_available() {
+  local file_path="${1:-}"
+  local server_cmd
+  server_cmd=$(detect_language_server "$file_path")
+
+  if [[ -z "$server_cmd" ]]; then
+    return 1
   fi
 
-  echo ""
-  return 0
+  local server_name
+  server_name=$(echo "$server_cmd" | cut -d' ' -f1)
+  command -v "$server_name" >/dev/null 2>&1
 }
 
 # detect_project_language <project_root>
@@ -627,10 +630,10 @@ lsp_get_symbols() {
 _get_js_ts_symbols() {
   local file_path="${1:-}"
   local symbols="[]"
+  local line_num=0
 
   # 간단한 regex 기반 심볼 추출
   while IFS= read -r line; do
-    local line_num=0
     local name="" kind=""
 
     # Class
@@ -652,7 +655,7 @@ _get_js_ts_symbols() {
         '. += [{"name": $name, "kind": $kind, "range": {"start": {"line": $line, "character": 0}}}]')
     fi
 
-    ((line_num++))
+    line_num=$((line_num + 1))
   done < "$file_path"
 
   echo "$symbols"
@@ -662,9 +665,9 @@ _get_js_ts_symbols() {
 _get_python_symbols() {
   local file_path="${1:-}"
   local symbols="[]"
+  local line_num=0
 
   while IFS= read -r line; do
-    local line_num=0
     local name="" kind=""
 
     # Class
@@ -686,7 +689,7 @@ _get_python_symbols() {
         '. += [{"name": $name, "kind": $kind, "range": {"start": {"line": $line, "character": 0}}}]')
     fi
 
-    ((line_num++))
+    line_num=$((line_num + 1))
   done < "$file_path"
 
   echo "$symbols"
@@ -696,9 +699,9 @@ _get_python_symbols() {
 _get_go_symbols() {
   local file_path="${1:-}"
   local symbols="[]"
+  local line_num=0
 
   while IFS= read -r line; do
-    local line_num=0
     local name="" kind=""
 
     # Struct/Interface
@@ -716,7 +719,7 @@ _get_go_symbols() {
         '. += [{"name": $name, "kind": $kind, "range": {"start": {"line": $line, "character": 0}}}]')
     fi
 
-    ((line_num++))
+    line_num=$((line_num + 1))
   done < "$file_path"
 
   echo "$symbols"
@@ -726,9 +729,9 @@ _get_go_symbols() {
 _get_rust_symbols() {
   local file_path="${1:-}"
   local symbols="[]"
+  local line_num=0
 
   while IFS= read -r line; do
-    local line_num=0
     local name="" kind=""
 
     # Struct/Enum/Trait
@@ -746,7 +749,7 @@ _get_rust_symbols() {
         '. += [{"name": $name, "kind": $kind, "range": {"start": {"line": $line, "character": 0}}}]')
     fi
 
-    ((line_num++))
+    line_num=$((line_num + 1))
   done < "$file_path"
 
   echo "$symbols"

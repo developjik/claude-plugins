@@ -17,6 +17,7 @@ Clarify부터 Wrap-up까지 **전체 PDCA 사이클**을 순차적으로 자동 
 ## 실행 순서
 
 $ARGUMENTS 를 기반으로 아래 6단계를 순차 실행합니다:
+각 단계 시작 전 `.harness/engine/state.json`과 `.harness/state/current-feature.txt`의 feature context가 동일한지 확인합니다.
 
 ### 0. Clarify (NEW!)
 - 사용자 요청 분석 및 구체화

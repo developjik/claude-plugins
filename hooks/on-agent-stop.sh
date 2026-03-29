@@ -9,6 +9,9 @@ source "${SCRIPT_DIR}/common.sh"
 # shellcheck source=hooks/lib/result-summary.sh
 source "${SCRIPT_DIR}/lib/result-summary.sh"
 
+_harness_load_module "feature-context"
+_harness_load_module "feature-sync"
+
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 PAYLOAD=$(cat)
 PROJECT_ROOT=$(harness_project_root "$PAYLOAD")
@@ -21,23 +24,20 @@ mkdir -p "$LOG_DIR" "$STATE_DIR"
 AGENT_NAME=$(json_query "$PAYLOAD" '.agent_name // .agent // ""')
 
 echo "[$TIMESTAMP] AGENT_STOP agent=$AGENT_NAME" >> "${LOG_DIR}/session.log"
-echo "" > "${STATE_DIR}/current-agent.txt" 2>/dev/null || true
+echo "" > "$(harness_current_agent_file "$PROJECT_ROOT")" 2>/dev/null || true
 
 # ============================================================================
 # 결과 요약 (PDCA 스킬 완료 시)
 # ============================================================================
 
 # 현재 기능과 단계 가져오기
-CURRENT_FEATURE=$(cat "${STATE_DIR}/current-feature.txt" 2>/dev/null || echo "")
-PHASE_START_TIME=$(cat "${STATE_DIR}/phase-start-time.txt" 2>/dev/null || echo "")
+CURRENT_FEATURE=$(get_current_feature "$PROJECT_ROOT")
+PHASE_START_TIME=$(cat "$(harness_phase_start_file "$PROJECT_ROOT")" 2>/dev/null || echo "")
 
 if [ -n "$CURRENT_FEATURE" ] && [ -n "$AGENT_NAME" ]; then
   # 에이전트를 단계에 매핑
   case "$AGENT_NAME" in
-    strategist)
-      PHASE="clarify"
-      ;;
-    harness-engineering:strategist)
+    strategist|harness-engineering:strategist)
       PHASE="plan"
       ;;
     architect|harness-engineering:architect)
@@ -73,6 +73,6 @@ if [ -n "$CURRENT_FEATURE" ] && [ -n "$AGENT_NAME" ]; then
 fi
 
 # 세션 통계 (wrapup 완료 후)
-if [ -n "$CURRENT_FEATURE" ] && [ "$AGENT_NAME" == "librarian" ] || [ "$AGENT_NAME" == "harness-engineering:librarian" ]; then
+if [ -n "$CURRENT_FEATURE" ] && { [ "$AGENT_NAME" == "librarian" ] || [ "$AGENT_NAME" == "harness-engineering:librarian" ]; }; then
   show_session_summary
 fi

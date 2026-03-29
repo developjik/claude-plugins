@@ -16,7 +16,7 @@ Harness Engineering은 단일 기능의 PDCA 워크플로우를 체계적으로 
 모든 기능의 상태, 의존성, 영향 범위를 **중앙 집중식**으로 관리합니다.
 
 ### 위치
-`docs/features.md`
+기본 레지스트리 문서는 `docs/analysis/features.md` 입니다. 런타임은 레거시 호환을 위해 `docs/features.md`가 존재하면 그 경로도 읽습니다.
 
 ### 관리 책임
 - **초기 생성**: `strategist` 에이전트 (또는 `librarian`)
@@ -115,7 +115,7 @@ Harness Engineering은 단일 기능의 PDCA 워크플로우를 체계적으로 
 
 ### Strategist
 - 기능의 우선순위와 의존성 파악
-- `docs/features.md` 초기화 및 기능 추가
+- `docs/analysis/features.md` 초기화 및 기능 추가
 - `plan.md`에 의존성 명시
 
 ### Architect
@@ -134,7 +134,7 @@ Harness Engineering은 단일 기능의 PDCA 워크플로우를 체계적으로 
 - 파일 병합 충돌 검증
 
 ### Librarian
-- `docs/features.md` 최신 상태 유지
+- `docs/analysis/features.md` 최신 상태 유지
 - 각 PDCA 단계 완료 후 상태 업데이트
 - 의존성 및 영향 범위 변경 사항 반영
 
@@ -150,7 +150,7 @@ Harness Engineering은 단일 기능의 PDCA 워크플로우를 체계적으로 
 2. **`payment-gateway`** (Planning): 결제 시스템 (user-auth에 의존)
 3. **`product-search`** (Designing): 상품 검색 기능 (독립적)
 
-### docs/features.md 상태
+### docs/analysis/features.md 상태
 
 ```markdown
 | `feature-slug` | 제목 | 상태 | 담당 | 의존성 | 영향 범위 |
@@ -176,7 +176,7 @@ Harness Engineering은 단일 기능의 PDCA 워크플로우를 체계적으로 
 
 1. **의존성을 명시적으로 선언**: 암묵적 의존성은 피하고, `plan.md`에 명확히 기록
 2. **영향 범위를 정확히 파악**: `design.md`의 `Affected Files/Modules`을 가능한 한 구체적으로 작성
-3. **정기적으로 레지스트리 업데이트**: `librarian`은 매 단계 완료 후 `docs/features.md` 갱신
+3. **정기적으로 레지스트리 업데이트**: `librarian`은 매 단계 완료 후 `docs/analysis/features.md` 갱신
 4. **충돌 감지 경고에 주의**: 훅이 경고를 출력하면 즉시 대응
 5. **테스트 강화**: 병렬 진행 시 통합 테스트 및 E2E 테스트 비중 증가
 
@@ -185,7 +185,7 @@ Harness Engineering은 단일 기능의 PDCA 워크플로우를 체계적으로 
 ## 7. 문제 해결 (Troubleshooting)
 
 ### Q: 의존성이 충족되지 않았는데도 기능을 진행하고 싶어요.
-**A**: `docs/features.md`에서 해당 기능의 상태를 `Blocked`로 변경하고, 사유를 기록합니다. 이후 의존성이 충족되면 상태를 다시 변경합니다.
+**A**: `docs/analysis/features.md`에서 해당 기능의 상태를 `Blocked`로 변경하고, 사유를 기록합니다. 이후 의존성이 충족되면 상태를 다시 변경합니다.
 
 ### Q: 파일 충돌이 감지되었지만 병렬 진행이 필수입니다.
 **A**: 파일 분리 전략을 적용합니다. 예를 들어, `src/auth/` 디렉토리를 기능별로 세분화하여 각 기능이 독립적인 파일을 수정하도록 합니다.
@@ -197,6 +197,6 @@ Harness Engineering은 단일 기능의 PDCA 워크플로우를 체계적으로 
 
 ## 참고
 
-- [기능 레지스트리 (Feature Registry)](./features.md)
-- [산출물 규약 (Artifact Convention)](./ARTIFACT-CONVENTION.md)
-- [아키텍처 (Architecture)](./ARCHITECTURE.md)
+- [기능 레지스트리 (Feature Registry)](../analysis/features.md)
+- [산출물 규약 (Artifact Convention)](../reference/artifact-convention.md)
+- [아키텍처 (Architecture)](../reference/architecture.md)

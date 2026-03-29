@@ -11,6 +11,9 @@ source "${SCRIPT_DIR}/lib/validation.sh"
 # shellcheck source=hooks/lib/error-messages.sh
 source "${SCRIPT_DIR}/lib/error-messages.sh"
 
+_harness_load_module "feature-context"
+_harness_load_module "feature-registry"
+
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 PAYLOAD=$(cat)
 HARNESS_DIR=$(harness_runtime_dir "$PAYLOAD")
@@ -204,8 +207,21 @@ case "$TOOL_NAME" in
       cp "$FILE_PATH" "${BACKUP_DIR}/${BACKUP_NAME}.$(date +%s).bak" 2>/dev/null || true
     fi
 
+    # docs/specs/<slug>/... 편집은 현재 feature context를 갱신
+    if [ -n "$FILE_PATH" ]; then
+      FEATURE_PATH="$FILE_PATH"
+      if [[ "$FEATURE_PATH" != /* ]]; then
+        FEATURE_PATH="${PROJECT_ROOT}/${FEATURE_PATH}"
+      fi
+
+      INFERRED_FEATURE=$(infer_feature_from_path "$FEATURE_PATH" 2>/dev/null || true)
+      if [ -n "$INFERRED_FEATURE" ]; then
+        set_current_feature "$PROJECT_ROOT" "$INFERRED_FEATURE" >/dev/null 2>&1 || true
+      fi
+    fi
+
     # 파일 충돌 감지 (기능 레지스트리 기반)
-    CURRENT_FEATURE=$(cat "${STATE_DIR}/current-feature.txt" 2>/dev/null || echo "")
+    CURRENT_FEATURE=$(get_current_feature "$PROJECT_ROOT")
     if [ -n "$CURRENT_FEATURE" ] && [ -n "$FILE_PATH" ]; then
       if ! detect_file_conflicts "$PROJECT_ROOT" "$FILE_PATH" "$CURRENT_FEATURE"; then
         echo "[$TIMESTAMP] CONFLICT_WARNING: File $FILE_PATH may conflict with other in-progress features" >> "${LOG_DIR}/conflicts.log"

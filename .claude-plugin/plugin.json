@@ -2,7 +2,7 @@
   "name": "harness-engineering",
   "version": "1.4.0",
   "displayName": "Harness Engineering — PDCA Development Automation",
-  "description": "Extended PDCA(Plan→Design→Do→Check→Wrap-up) based AI software development automation plugin. Provides systematic development workflows with 6 specialized agents (strategist, architect, engineer, guardian, librarian, debugger) and 12 execution skills. Features L0-L4 automation levels, multi-framework test runner, 4-tier verification classes, wave execution, and hash-anchored edits.",
+  "description": "Extended PDCA(Plan→Design→Do→Check→Wrap-up) based AI software development automation plugin. Provides systematic development workflows with 6 specialized agents (strategist, architect, engineer, guardian, librarian, debugger) and 13 execution skills. Features L0-L4 automation levels, multi-framework test runner, 4-tier verification classes, wave execution, and hash-anchored edits.",
   "author": {
     "name": "developjik",
     "email": "developjik@gmail.com",

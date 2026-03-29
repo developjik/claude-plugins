@@ -316,6 +316,137 @@ aggregate_subagent_results() {
 }
 
 # ============================================================================
+# 서브에이전트 완료 대기
+# Usage: wait_for_subagents <project_root> <subagent_ids_comma> [timeout_seconds]
+# Returns: JSON with overall status and per-subagent summary
+# ============================================================================
+wait_for_subagents() {
+  local project_root="${1:-}"
+  local subagent_ids="${2:-}"
+  local timeout_seconds="${3:-$SUBAGENT_TIMEOUT}"
+
+  if [[ -z "$subagent_ids" ]]; then
+    jq -n '{
+      status: "completed",
+      subagents: [],
+      summary: {
+        total: 0,
+        completed: 0,
+        failed: 0,
+        running: 0,
+        pending: 0,
+        timeout: 0
+      }
+    }'
+    return 0
+  fi
+
+  local start_epoch
+  start_epoch=$(date +%s)
+
+  while true; do
+    local snapshot_entries="[]"
+    local total=0
+    local completed=0
+    local failed=0
+    local running=0
+    local pending=0
+    local timed_out=0
+    local subagent_id
+
+    for subagent_id in $(echo "$subagent_ids" | tr ',' ' '); do
+      [[ -n "$subagent_id" ]] || continue
+
+      total=$((total + 1))
+
+      local state_file="${project_root}/${SUBAGENT_DIR}/${subagent_id}/state.json"
+      local entry
+      local status="missing"
+
+      if [[ -f "$state_file" ]]; then
+        status=$(jq -r '.status // "unknown"' "$state_file" 2>/dev/null)
+        entry=$(jq -c '{
+          id: .id,
+          status: .status,
+          duration_ms: (.duration_ms // 0),
+          started_at: .started_at,
+          completed_at: .completed_at
+        }' "$state_file" 2>/dev/null)
+      else
+        entry=$(jq -n --arg id "$subagent_id" '{id: $id, status: "missing", duration_ms: 0}')
+      fi
+
+      case "$status" in
+        completed)
+          completed=$((completed + 1))
+          ;;
+        running)
+          running=$((running + 1))
+          ;;
+        pending)
+          pending=$((pending + 1))
+          ;;
+        timeout)
+          timed_out=$((timed_out + 1))
+          failed=$((failed + 1))
+          ;;
+        *)
+          failed=$((failed + 1))
+          ;;
+      esac
+
+      snapshot_entries=$(echo "$snapshot_entries" | jq '. + ['"$entry"']')
+    done
+
+    local overall_status="running"
+    if [[ $running -eq 0 && $pending -eq 0 ]]; then
+      if [[ $failed -gt 0 ]]; then
+        overall_status="partial_failure"
+      else
+        overall_status="completed"
+      fi
+    else
+      local now_epoch elapsed
+      now_epoch=$(date +%s)
+      elapsed=$((now_epoch - start_epoch))
+      if [[ $elapsed -ge $timeout_seconds ]]; then
+        overall_status="timeout"
+      fi
+    fi
+
+    local result
+    result=$(jq -n \
+      --arg status "$overall_status" \
+      --argjson subs "$snapshot_entries" \
+      --argjson total "$total" \
+      --argjson completed "$completed" \
+      --argjson failed "$failed" \
+      --argjson running "$running" \
+      --argjson pending "$pending" \
+      --argjson timeout "$timed_out" \
+      '{
+        status: $status,
+        subagents: $subs,
+        summary: {
+          total: $total,
+          completed: $completed,
+          failed: $failed,
+          running: $running,
+          pending: $pending,
+          timeout: $timeout
+        }
+      }')
+
+    if [[ "$overall_status" == "completed" || "$overall_status" == "partial_failure" || "$overall_status" == "timeout" ]]; then
+      echo "$result"
+      return 0
+    fi
+
+    sleep 1
+  done
+}
+
+# ============================================================================
 # 서브에이전트 정리
 # ============================================================================
 cleanup_completed_subagents() {

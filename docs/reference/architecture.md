@@ -202,7 +202,7 @@ sequenceDiagram
     U->>CC: 에이전트 전환
     CC->>HC: SubagentStart / SubagentStop
     HC->>HS: on-agent-start.sh / on-agent-stop.sh
-    HS->>RT: current-agent, pdca-phase 갱신
+    HS->>RT: state.json SSOT 및 current-agent.txt/pdca-phase.txt 캐시 갱신
 
     U->>CC: 세션 종료
     CC->>HC: SessionEnd
@@ -212,11 +212,11 @@ sequenceDiagram
 
 ### 훅의 책임
 
-- `session-start.sh`: 로그/상태 디렉토리 준비, Git 브랜치 감지, 초기 상태 설정
+- `session-start.sh`: 로그/상태 디렉토리 준비, Git 브랜치 감지, `state.json` 복구 또는 캐시 초기화
 - `session-start.sh`: 필요 시 `.git/info/exclude`에 `.harness/` 등록
 - `pre-tool.sh`: 위험 Bash 명령 차단, 파일 편집 전 백업
 - `post-tool.sh`: 파일 변경 해시 기록, Bash 실행 로그 기록
-- `on-agent-start.sh`: 에이전트와 PDCA 단계를 매핑해 상태 파일 갱신
+- `on-agent-start.sh`: 에이전트와 PDCA 단계를 매핑해 `state.json`과 런타임 캐시를 동기화
 - `on-agent-stop.sh`, `session-end.sh`: 세션 종료 흔적 정리
 
 ## 5. 저장소와 런타임 상태

@@ -44,7 +44,7 @@
 | `hooks/common.sh` | 11개 Context Rot 함수 추가 (+254줄) |
 | `hooks/session-start.sh` | 세션 초기화 로직 추가 (+15줄) |
 | `hooks/post-tool.sh` | 도구 호출 추적 로직 추가 (+28줄) |
-| `docs/features.md` | 기능 레지스트리 등록 |
+| `docs/analysis/features.md` | 기능 레지스트리 등록 |
 
 ### 🔧 추가된 함수 (common.sh)
 
@@ -99,7 +99,7 @@
 
 - [x] `README.md`: Context Rot 섹션 추가 (예정)
 - [x] `CHANGELOG.md`: v1.2.0 릴리즈 노트 작성 (예정)
-- [x] `docs/features.md`: fresh-context 등록
+- [x] `docs/analysis/features.md`: fresh-context 등록
 - [x] `docs/templates/context/README.md`: 사용 가이드 작성
 
 ---

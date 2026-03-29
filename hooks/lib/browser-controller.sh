@@ -26,6 +26,7 @@ readonly BROWSER_LOG_FILE="${BROWSER_STATE_DIR}/browser.log"
 readonly BROWSER_TIMEOUT=30000          # 30초
 readonly BROWSER_PAGE_TIMEOUT=60000    # 60초
 readonly BROWSER_SCRIPT_TIMEOUT=10000  # 10초
+readonly BROWSER_STATE_ENV_VAR="HARNESS_BROWSER_STATE_DIR"
 
 # ============================================================================
 # 상태 관리
@@ -114,6 +115,16 @@ browser_connect() {
     esac
   done
 
+  if ! command -v node >/dev/null 2>&1; then
+    echo '{"success": false, "error": "node_not_installed"}'
+    return 1
+  fi
+
+  if ! node -e "require('playwright')" >/dev/null 2>&1; then
+    echo '{"success": false, "error": "playwright_not_installed"}'
+    return 1
+  fi
+
   _init_browser_state "$project_root"
 
   local state_dir="${project_root}/${BROWSER_STATE_DIR}"
@@ -126,13 +137,15 @@ const fs = require('fs');
 const path = require('path');
 
 async function connect() {
-  const stateDir = process.env.BROWSER_STATE_DIR || '.harness/browser';
+  const stateDir = process.env.HARNESS_BROWSER_STATE_DIR || '.harness/browser';
   const url = process.env.BROWSER_URL || 'about:blank';
   const browserType = process.env.BROWSER_TYPE || 'chromium';
 
   let browser, context, page;
 
   try {
+    const { chromium } = require('playwright');
+
     // Headed 모드로 브라우저 시작
     browser = await chromium.launch({
       headless: false,
@@ -202,7 +215,7 @@ SCRIPT
   local result
   result=$(
     cd "$project_root" && \
-    BROWSER_STATE_DIR="${state_dir}" \
+    HARNESS_BROWSER_STATE_DIR="${state_dir}" \
     BROWSER_URL="$url" \
     BROWSER_TYPE="$browser" \
     node "$script_file" 2>&1
@@ -216,7 +229,13 @@ SCRIPT
     echo "$result"
     return 0
   else
-    echo "$result"
+    if echo "$result" | jq -e . >/dev/null 2>&1; then
+      echo "$result"
+    elif [[ -n "$result" ]]; then
+      jq -cn --arg err "$result" '{"success": false, "error": $err}'
+    else
+      echo '{"success": false, "error": "browser_connect_failed"}'
+    fi
     return 1
   fi
 }
@@ -237,7 +256,7 @@ const fs = require('fs');
 const path = require('path');
 
 async function disconnect() {
-  const stateDir = process.env.BROWSER_STATE_DIR || '.harness/browser';
+  const stateDir = process.env.HARNESS_BROWSER_STATE_DIR || '.harness/browser';
   const wsEndpointFile = path.join(stateDir, 'ws-endpoint.txt');
 
   if (!fs.existsSync(wsEndpointFile)) {
@@ -280,7 +299,7 @@ SCRIPT
   local result
   result=$(
     cd "$project_root" && \
-    BROWSER_STATE_DIR="${state_dir}" \
+    HARNESS_BROWSER_STATE_DIR="${state_dir}" \
     node "$script_file" 2>&1
   )
 
@@ -695,10 +714,9 @@ _browser_action() {
   cat > "$script_file" << SCRIPT
 const fs = require('fs');
 const path = require('path');
-const { chromium } = require('playwright');
 
 async function performAction() {
-  const stateDir = process.env.BROWSER_STATE_DIR || '.harness/browser';
+  const stateDir = process.env.HARNESS_BROWSER_STATE_DIR || '.harness/browser';
   const action = process.env.BROWSER_ACTION || '';
   const params = process.env.BROWSER_PARAMS || '';
   const wsEndpointFile = path.join(stateDir, 'ws-endpoint.txt');
@@ -714,6 +732,7 @@ async function performAction() {
   }
 
   try {
+    const { chromium } = require('playwright');
     const wsEndpoint = fs.readFileSync(wsEndpointFile, 'utf8').trim();
     const browser = await chromium.connect({ wsEndpoint });
     const context = browser.contexts()[0];
@@ -940,13 +959,19 @@ SCRIPT
   local result
   result=$(
     cd "$project_root" && \
-    BROWSER_STATE_DIR="${state_dir}" \
+    HARNESS_BROWSER_STATE_DIR="${state_dir}" \
     BROWSER_ACTION="$action" \
     BROWSER_PARAMS="$params" \
     node "$script_file" 2>&1
   )
 
-  echo "$result"
+  if echo "$result" | jq -e . >/dev/null 2>&1; then
+    echo "$result"
+  elif [[ -n "$result" ]]; then
+    jq -cn --arg err "$result" '{"success": false, "error": $err}'
+  else
+    echo '{"success": false, "error": "browser_action_failed"}'
+  fi
 
   # 성공 여부 확인
   if echo "$result" | jq -e '.success' &>/dev/null; then
