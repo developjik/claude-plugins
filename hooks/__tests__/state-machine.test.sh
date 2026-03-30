@@ -185,6 +185,30 @@ test_record_runtime_phase_state_syncs_cache() {
   teardown
 }
 
+test_init_or_repair_state_machine_repairs_cache() {
+  setup
+
+  init_state_machine "$TEST_DIR" "test-feature"
+  rm -rf "${TEST_DIR}/.harness/state"
+
+  init_or_repair_state_machine "$TEST_DIR" "test-feature" > /dev/null
+
+  local phase_file feature_file
+  phase_file="${TEST_DIR}/.harness/state/pdca-phase.txt"
+  feature_file="${TEST_DIR}/.harness/state/current-feature.txt"
+
+  if assert_file_exists "$phase_file" "Phase cache should be recreated" && \
+     assert_file_exists "$feature_file" "Feature cache should be recreated" && \
+     assert_equals "clarify" "$(cat "$phase_file")" "Phase cache should match state" && \
+     assert_equals "test-feature" "$(cat "$feature_file")" "Feature cache should match state"; then
+    pass "test_init_or_repair_state_machine_repairs_cache"
+  else
+    fail "test_init_or_repair_state_machine_repairs_cache"
+  fi
+
+  teardown
+}
+
 test_transition_state_valid() {
   setup
 
@@ -282,6 +306,28 @@ test_create_snapshot() {
     pass "test_create_snapshot"
   else
     fail "test_create_snapshot"
+  fi
+
+  teardown
+}
+
+test_create_snapshot_without_lock() {
+  setup
+
+  init_state_machine "$TEST_DIR" "test-feature"
+
+  local snapshot_id
+  snapshot_id=$(create_snapshot_without_lock "$TEST_DIR" "clarify")
+
+  local snapshot_path state_json
+  snapshot_path="$(snapshots_dir "$TEST_DIR")/${snapshot_id}.json"
+  state_json=$(get_state "$TEST_DIR")
+
+  if assert_file_exists "$snapshot_path" "Snapshot file should exist without lock wrapper" && \
+     assert_json_value "$state_json" ".snapshots[0]" "$snapshot_id" "State should reference snapshot"; then
+    pass "test_create_snapshot_without_lock"
+  else
+    fail "test_create_snapshot_without_lock"
   fi
 
   teardown
@@ -491,10 +537,12 @@ main() {
   test_get_current_phase
   test_set_feature_slug_syncs_cache
   test_record_runtime_phase_state_syncs_cache
+  test_init_or_repair_state_machine_repairs_cache
   test_transition_state_valid
   test_transition_state_invalid
   test_can_transition
   test_create_snapshot
+  test_create_snapshot_without_lock
   test_rollback_to_snapshot
   test_list_snapshots
   test_log_transition

@@ -24,7 +24,7 @@ mkdir -p "$LOG_DIR" "$STATE_DIR"
 AGENT_NAME=$(json_query "$PAYLOAD" '.agent_name // .agent // ""')
 
 echo "[$TIMESTAMP] AGENT_STOP agent=$AGENT_NAME" >> "${LOG_DIR}/session.log"
-echo "" > "$(harness_current_agent_file "$PROJECT_ROOT")" 2>/dev/null || true
+echo "" > "$(harness_current_agent_file "$PROJECT_ROOT")" 2> /dev/null || true
 
 # ============================================================================
 # 결과 요약 (PDCA 스킬 완료 시)
@@ -32,24 +32,24 @@ echo "" > "$(harness_current_agent_file "$PROJECT_ROOT")" 2>/dev/null || true
 
 # 현재 기능과 단계 가져오기
 CURRENT_FEATURE=$(get_current_feature "$PROJECT_ROOT")
-PHASE_START_TIME=$(cat "$(harness_phase_start_file "$PROJECT_ROOT")" 2>/dev/null || echo "")
+PHASE_START_TIME=$(cat "$(harness_phase_start_file "$PROJECT_ROOT")" 2> /dev/null || echo "")
 
 if [ -n "$CURRENT_FEATURE" ] && [ -n "$AGENT_NAME" ]; then
   # 에이전트를 단계에 매핑
   case "$AGENT_NAME" in
-    strategist|harness-engineering:strategist)
+    strategist | harness-engineering:strategist)
       PHASE="plan"
       ;;
-    architect|harness-engineering:architect)
+    architect | harness-engineering:architect)
       PHASE="design"
       ;;
-    engineer|harness-engineering:engineer)
+    engineer | harness-engineering:engineer)
       PHASE="implement"
       ;;
-    guardian|harness-engineering:guardian)
+    guardian | harness-engineering:guardian)
       PHASE="check"
       ;;
-    librarian|harness-engineering:librarian)
+    librarian | harness-engineering:librarian)
       PHASE="wrapup"
       ;;
     *)
@@ -68,7 +68,7 @@ if [ -n "$CURRENT_FEATURE" ] && [ -n "$AGENT_NAME" ]; then
     generate_result_summary "$PHASE" "$CURRENT_FEATURE" "$PHASE_START_TIME"
 
     # 기능 레지스트리 자동 동기화
-    sync_on_phase_complete "$PROJECT_ROOT" "$CURRENT_FEATURE" "$PHASE" 2>/dev/null || true
+    sync_on_phase_complete "$PROJECT_ROOT" "$CURRENT_FEATURE" "$PHASE" 2> /dev/null || true
   fi
 fi
 

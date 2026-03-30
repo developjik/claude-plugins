@@ -238,6 +238,42 @@ sequenceDiagram
 | `<project-root>/.harness/review/` | 2단계 리뷰 결과 |
 | `<project-root>/.harness/recovery/` | 복구 체크포인트 |
 
+## 6. 서브에이전트 실행 계약
+
+`hooks/lib/subagent-spawner.sh`는 이제 서브에이전트 디렉터리 아래 산출물과 상태 전이를 명시적으로 관리합니다.
+
+### 라이프사이클
+
+`spawn` → `prepare` → `start` → `collect` → `finalize`
+
+- `spawn`: `task.md`, `context.md`, `state.json` 생성, 상태는 `pending`
+- `prepare`: `execution-request.json` 생성, 외부 실행기가 읽을 계약을 고정 경로로 제공, 상태는 `ready`
+- `start`: 실제 실행 시작 시각 기록, 상태는 `running`
+- `collect`: 외부 실행기 결과를 `adapter-result.json`, `collected-result.json`으로 정규화, 상태는 `collected`
+- `finalize`: `result.md`와 필요 시 `failure.json` 작성, 상태는 `completed` / `failed` / `timeout`
+
+### 산출물 경로
+
+- `task.md`: 실행할 태스크 원문
+- `context.md`: 프로젝트 컨텍스트와 출력 규약
+- `execution-request.json`: 외부 실행기용 입력 계약
+- `adapter-result.json`: 실행기가 남긴 원본 구조화 결과
+- `collected-result.json`: 하네스가 정규화한 중간 결과
+- `result.md`: 사람이 읽는 최종 결과
+- `failure.json`: 실패 코드, 메시지, 세부 정보
+
+### 실패 사유 형식
+
+`failure.json`과 `state.json.error`는 같은 형식을 사용합니다.
+
+```json
+{
+  "code": "short_machine_code",
+  "message": "human readable summary",
+  "details": {}
+}
+```
+
 ### 라이브러리 모듈 (hooks/lib/)
 
 | 모듈 | 설명 | 의존성 |
@@ -255,18 +291,61 @@ sequenceDiagram
 | `result-summary.sh` | 결과 요약 | json-utils |
 | `worktree.sh` | Git worktree 관리 | 없음 |
 | `doctor.sh` | 시스템 진단 | logging |
-| **test-runner.sh** | 다중 프레임워크 테스트 (P0-1) | json-utils |
+| `test-detection.sh` | 프레임워크 감지, 패키지 매니저 판별, 명령 합성 | test-runner |
+| `test-results.sh` | 테스트 결과 파싱, 성공률 계산, 요약 출력 | test-runner |
+| **test-runner.sh** | 다중 프레임워크 테스트 facade, 실행/재시도/커버리지 (P0-1) | test-detection, test-results |
 | **verification-classes.sh** | 검증 클래스 (P0-1) | test-runner |
 | **subagent-spawner.sh** | 서브에이전트 스포닝 (P0-2) | json-utils, logging |
 | **state-machine.sh** | 상태 머신 엔진 (P0-3) | json-utils, logging |
-| **review-engine.sh** | 2단계 리뷰 (P1-1) | subagent-spawner, state-machine |
-| **skill-evaluation.sh** | 스킬 평가 (P1-2) | json-utils, logging |
-| **crash-recovery.sh** | 크래시 복구 (P1-3) | state-machine, logging |
-| **browser-testing.sh** | 브라우저 테스트 (P1-4) | json-utils, logging |
+| `state-store.sh` | state.json / transitions.jsonl 읽기·쓰기 | state-machine |
+| `phase-cache.sh` | current-agent/current-feature/pdca-phase 캐시 동기화 | state-machine, state-store |
+| `snapshot-store.sh` | 스냅샷 생성·정리·복원 | state-machine, state-store |
+| `subagent-request.sh` | task/context 준비, execution contract 생성, 시작 준비 | subagent-spawner |
+| `subagent-collect.sh` | 실행 결과 정규화, 상태 조회, 집계, 대기 | subagent-spawner |
+| `subagent-finalize.sh` | terminal 상태 기록, 결과 파일 작성, 정리 | subagent-spawner |
+| `lsp-diagnostics.sh` | 언어별 진단 파서, 프로젝트 진단 요약, 리포트 렌더링 | lsp-tools |
+| `lsp-symbols.sh` | 심볼 추출, 위치/rename edit 포맷 변환 | lsp-tools |
+| `review-evidence.sh` | FR/file/API/config evidence 매칭, Stage 1 점수 입력 생성 | review-engine |
+| **review-engine.sh** | 2단계 리뷰 orchestration, 결과 저장, helper fallback 제어 (P1-1) | review-evidence, subagent-spawner, state-machine |
+| `skill-metrics.sh` | 스킬 실행 메트릭 기록, 통계 집계, export/cleanup | skill-evaluation |
+| `skill-scoring.sh` | 스킬 점수 계산, 랭킹, 이상 탐지 | skill-evaluation, skill-metrics |
+| `skill-report.sh` | 대시보드, 주간 리포트, 권장사항 생성 | skill-evaluation, skill-metrics |
+| **skill-evaluation.sh** | 스킬 평가 facade, helper 로드/공개 API 유지 (P1-2) | skill-metrics, skill-scoring, skill-report |
+| `crash-detection.sh` | stuck/loop 판정, 이슈 진단, 복구 옵션 계산 | crash-recovery |
+| `crash-report.sh` | 크래시 분석, 포렌식 리포트, 옵션 목록 출력 | crash-recovery, crash-detection |
+| **crash-recovery.sh** | 복구 facade, 상태 전환 실행, 체크포인트 생성 (P1-3) | crash-detection, crash-report, state-machine |
+| `browser-state.sh` | browser session.json 경로/상태 초기화/조회 | browser-controller |
+| `browser-session.sh` | Playwright 세션 연결/해제, Node bridge 실행 | browser-controller, browser-state |
+| `browser-actions.sh` | 페이지 액션 래퍼, action.js 브리지, 입력 직렬화 | browser-controller, browser-session, browser-state |
+| **browser-controller.sh** | 브라우저 facade, CLI, debug 출력 (P1-5) | browser-state, browser-session, browser-actions |
+| `browser-test-runner.sh` | 브라우저 프레임워크 감지, 실행, 결과 파싱 | browser-testing |
+| `browser-test-report.sh` | HTML 리포트, 히스토리 조회, 결과 정리 | browser-testing, browser-test-runner |
+| **browser-testing.sh** | 브라우저 테스트 facade, 전체 suite orchestration (P1-4) | browser-test-runner, browser-test-report |
 | **hash-anchored-edit.sh** | 해시 앵커 에디트 (P2-1) | json-utils, logging |
-| **wave-executor.sh** | 웨이브 실행 (P2-2) | json-utils, logging, subagent-spawner |
+| **wave-graph.sh** | 웨이브 DAG 계산, 위상 정렬, 순환 감지 | jq |
+| **wave-runner.sh** | 웨이브 실행 orchestration, subagent 집계 | wave-graph, subagent-spawner |
+| **wave-executor.sh** | 웨이브 facade, task loading, YAML bridge | task-format, wave-graph, wave-runner |
 
-## 6. 설계 원칙
+## 6. 장기 런타임 경계
+
+대형 Bash 모듈이 늘어나면서, 실행 계층은 다음 원칙으로 재정리합니다.
+
+- **Bash는 control plane 유지**: 훅 진입점, 경로/파일 관리, 외부 프로세스 실행, fallback
+- **보조 런타임은 pure data logic 담당**: DAG 계산, 점수화, JSON 정규화, 파서
+- **첫 분해 대상은 `wave-executor.sh`**: 그래프 계산과 실행 orchestration을 분리했고, planner는 기본 `HARNESS_WAVE_PLANNER=auto`에서 Python helper를 우선 사용하되, 인프라 오류 시 Bash로 fallback합니다. 새 backend direct caller는 validate에서 차단합니다.
+- **`review-engine.sh`는 1차 분해 완료**: Stage 1 evidence matcher는 `review-evidence.sh`, Stage 2 정규화/가중 점수 계산은 Python helper가 담당하고, Bash facade는 orchestration/fallback을 유지합니다.
+- **`state-machine.sh`는 1차 분해 완료**: facade는 락/가드/전환만 유지하고, 상태 저장은 `state-store.sh`, 캐시 동기화는 `phase-cache.sh`, 스냅샷은 `snapshot-store.sh`로 분리했습니다.
+- **`subagent-spawner.sh`도 1차 분해 완료**: facade는 공통 경로/유틸과 공개 함수명만 유지하고, 요청 준비는 `subagent-request.sh`, 결과 수집은 `subagent-collect.sh`, 완료 처리는 `subagent-finalize.sh`가 맡습니다.
+- **`lsp-tools.sh`도 1차 분해 완료**: facade는 공개 LSP API를 유지하고, 진단 파싱은 `lsp-diagnostics.sh`, 심볼/위치 포맷 변환은 `lsp-symbols.sh`로 분리했습니다.
+- **`skill-evaluation.sh`도 1차 분해 완료**: facade는 공개 API만 유지하고, 메트릭 기록/집계는 `skill-metrics.sh`, 점수/랭킹/이상 탐지는 `skill-scoring.sh`, 대시보드/권장사항 생성은 `skill-report.sh`로 분리했습니다.
+- **`crash-recovery.sh`도 1차 분해 완료**: facade는 복구 실행/체크포인트 생성만 유지하고, stuck/loop 판정과 복구 옵션 계산은 `crash-detection.sh`, 분석/포렌식 리포트는 `crash-report.sh`로 분리했습니다.
+- **`browser-controller.sh`도 1차 분해 완료**: facade는 CLI와 debug 출력만 유지하고, 상태 저장은 `browser-state.sh`, Playwright 세션 브리지는 `browser-session.sh`, 페이지 액션 래퍼는 `browser-actions.sh`로 분리했습니다.
+- **`browser-testing.sh`도 1차 분해 완료**: facade는 전체 suite orchestration만 유지하고, 프레임워크 감지/실행/파서는 `browser-test-runner.sh`, HTML 리포트/히스토리/정리는 `browser-test-report.sh`로 분리했습니다.
+- **`test-runner.sh`도 1차 분해 완료**: facade는 실행/재시도/커버리지만 유지하고, 프레임워크 감지/명령 합성은 `test-detection.sh`, 결과 파싱/요약은 `test-results.sh`로 분리했습니다.
+
+자세한 분해 순서, 위험, 테스트 전략은 [runtime-redesign.md](runtime-redesign.md)에 정리되어 있습니다.
+
+## 7. 설계 원칙
 
 - **고정 경로 우선**: 스킬 간 인수인계는 검색보다 `docs/specs/<slug>/` 고정 경로를 사용합니다.
 - **프롬프트 중심 오케스트레이션**: 복잡한 런타임 코드 대신 스킬과 에이전트 지침으로 작업 흐름을 제어합니다.

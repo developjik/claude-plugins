@@ -1,0 +1,22 @@
+[
+  {
+    "id": "generate-docs",
+    "dependencies": []
+  },
+  {
+    "id": "lint",
+    "dependencies": []
+  },
+  {
+    "id": "test",
+    "dependencies": ["lint"]
+  },
+  {
+    "id": "release-notes",
+    "dependencies": ["generate-docs"]
+  },
+  {
+    "id": "deploy",
+    "dependencies": ["test", "release-notes"]
+  }
+]

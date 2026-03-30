@@ -99,6 +99,15 @@ class AuthService {
 export { AuthService, User };
 EOF
 
+  cat > "${TEST_DIR}/src/tool.py" << 'EOF'
+class ReportBuilder:
+    async def build(self):
+        return "ok"
+
+def helper():
+    return ReportBuilder()
+EOF
+
   # Create package.json
   cat > "${TEST_DIR}/package.json" << 'EOF'
 {
@@ -182,6 +191,24 @@ test_lsp_get_symbols() {
 
   assert_equals "1" "$has_authservice" "Found AuthService class"
   assert_equals "1" "$has_user" "Found User interface"
+}
+
+test_lsp_get_python_symbols() {
+  echo "Testing Python symbol extraction..."
+
+  local symbols
+  symbols=$(lsp_get_symbols "${TEST_DIR}/src/tool.py")
+
+  assert_json_array_length 3 "$symbols" "Found expected Python symbols"
+
+  local has_class has_build has_helper
+  has_class=$(echo "$symbols" | jq '[.[] | select(.name == "ReportBuilder" and .kind == "class")] | length')
+  has_build=$(echo "$symbols" | jq '[.[] | select(.name == "build" and .kind == "function")] | length')
+  has_helper=$(echo "$symbols" | jq '[.[] | select(.name == "helper" and .kind == "function")] | length')
+
+  assert_equals "1" "$has_class" "Found Python class"
+  assert_equals "1" "$has_build" "Found async Python function"
+  assert_equals "1" "$has_helper" "Found Python helper function"
 }
 
 test_lsp_find_references() {
@@ -281,6 +308,16 @@ test_lsp_format_report() {
   assert_contains "Warnings:" "$report" "Report has warning count"
 }
 
+test_lsp_format_report_clean_project() {
+  echo "Testing clean project report formatting..."
+
+  rm -f "${TEST_DIR}/tsconfig.json"
+  local report
+  report=$(lsp_format_diagnostic_report "$TEST_DIR")
+
+  assert_contains "No issues found" "$report" "Clean project report shows no issues"
+}
+
 # Run tests
 main() {
   echo "================================"
@@ -293,6 +330,7 @@ main() {
   test_detect_language_server
   test_detect_project_language
   test_lsp_get_symbols
+  test_lsp_get_python_symbols
   test_lsp_find_references
   test_lsp_goto_definition
   test_lsp_rename
@@ -300,6 +338,7 @@ main() {
   test_lsp_project_diagnostics
   test_lsp_has_errors
   test_lsp_format_report
+  test_lsp_format_report_clean_project
 
   teardown
 

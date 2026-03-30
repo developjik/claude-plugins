@@ -277,6 +277,32 @@ test_start_subagent_execution() {
   teardown
 }
 
+test_prepare_subagent_execution_contract() {
+  setup
+
+  local task_file="${TEST_DIR}/task.md"
+  echo "# Task" > "$task_file"
+
+  local subagent_id
+  subagent_id=$(spawn_subagent "$task_file" "$TEST_DIR" "sonnet")
+
+  local contract
+  contract=$(prepare_for_agent_execution "$subagent_id" "$TEST_DIR")
+  local state
+  state=$(get_subagent_status "$subagent_id" "$TEST_DIR")
+
+  if assert_json_value "$contract" ".status" "ready" "Contract status should be ready" && \
+     assert_json_value "$state" ".status" "ready" "State should move to ready" && \
+     assert_json_value "$contract" ".failure_reason_format.code" "short_machine_code" "Failure format should be documented" && \
+     assert_file_exists "${TEST_DIR}/.harness/subagents/${subagent_id}/execution-request.json" "Execution request should exist"; then
+    pass "test_prepare_subagent_execution_contract"
+  else
+    fail "test_prepare_subagent_execution_contract"
+  fi
+
+  teardown
+}
+
 test_complete_subagent() {
   setup
 
@@ -303,6 +329,85 @@ test_complete_subagent() {
     pass "test_complete_subagent"
   else
     fail "test_complete_subagent (duration_ms=$duration_ms)"
+  fi
+
+  teardown
+}
+
+test_collect_and_finalize_subagent_lifecycle() {
+  setup
+
+  local task_file="${TEST_DIR}/task.md"
+  echo "# Task" > "$task_file"
+
+  local subagent_id
+  subagent_id=$(spawn_subagent "$task_file" "$TEST_DIR" "sonnet")
+
+  prepare_for_agent_execution "$subagent_id" "$TEST_DIR" >/dev/null
+  start_subagent_execution "$subagent_id" "$TEST_DIR"
+
+  local adapter_payload
+  adapter_payload=$(jq -n \
+    '{status: "failed", result_content: "Lint failed on src/app.ts", failure_reason: {code: "lint_failed", message: "Lint failed", details: {step: "eslint"}}, executor: {name: "codex", run_id: "run-123", metadata: {attempt: 1}}}')
+
+  local normalized_result
+  normalized_result=$(collect_subagent_execution_result "$subagent_id" "$TEST_DIR" "$adapter_payload")
+
+  local collected_state
+  collected_state=$(get_subagent_status "$subagent_id" "$TEST_DIR")
+
+  local final_result
+  final_result=$(finalize_subagent_execution "$subagent_id" "$TEST_DIR" "$normalized_result")
+
+  local final_state
+  final_state=$(get_subagent_status "$subagent_id" "$TEST_DIR")
+
+  if assert_json_value "$normalized_result" ".status" "failed" "Collected status should normalize to failed" && \
+     assert_json_value "$collected_state" ".status" "collected" "State should move to collected before finalize" && \
+     assert_json_value "$collected_state" ".error.code" "lint_failed" "Failure code should be preserved" && \
+     assert_json_value "$final_result" ".status" "failed" "Finalized result should remain failed" && \
+     assert_json_value "$final_state" ".status" "failed" "Final state should be failed" && \
+     assert_json_value "$final_state" ".executor.name" "codex" "Executor metadata should be recorded" && \
+     assert_file_exists "${TEST_DIR}/.harness/subagents/${subagent_id}/adapter-result.json" "Adapter result artifact should exist" && \
+     assert_file_exists "${TEST_DIR}/.harness/subagents/${subagent_id}/collected-result.json" "Collected result artifact should exist" && \
+     assert_file_exists "${TEST_DIR}/.harness/subagents/${subagent_id}/result.md" "Result artifact should exist" && \
+     assert_file_exists "${TEST_DIR}/.harness/subagents/${subagent_id}/failure.json" "Failure artifact should exist"; then
+    pass "test_collect_and_finalize_subagent_lifecycle"
+  else
+    fail "test_collect_and_finalize_subagent_lifecycle"
+  fi
+
+  teardown
+}
+
+test_finalize_subagent_execution_uses_stored_collected_result() {
+  setup
+
+  local task_file="${TEST_DIR}/task.md"
+  echo "# Task" > "$task_file"
+
+  local subagent_id
+  subagent_id=$(spawn_subagent "$task_file" "$TEST_DIR" "sonnet")
+
+  prepare_for_agent_execution "$subagent_id" "$TEST_DIR" > /dev/null
+  start_subagent_execution "$subagent_id" "$TEST_DIR"
+
+  local adapter_payload
+  adapter_payload=$(jq -n \
+    '{status: "completed", result_content: "All checks passed", executor: {name: "codex", run_id: "run-456", metadata: {attempt: 2}}}')
+
+  collect_subagent_execution_result "$subagent_id" "$TEST_DIR" "$adapter_payload" > /dev/null
+
+  local final_result final_state
+  final_result=$(finalize_subagent_execution "$subagent_id" "$TEST_DIR")
+  final_state=$(get_subagent_status "$subagent_id" "$TEST_DIR")
+
+  if assert_json_value "$final_result" ".status" "completed" "Finalized status should be completed" && \
+     assert_json_value "$final_state" ".status" "completed" "State should move to completed" && \
+     assert_file_exists "${TEST_DIR}/.harness/subagents/${subagent_id}/result.md" "Result artifact should exist after finalize"; then
+    pass "test_finalize_subagent_execution_uses_stored_collected_result"
+  else
+    fail "test_finalize_subagent_execution_uses_stored_collected_result"
   fi
 
   teardown
@@ -430,6 +535,31 @@ test_generate_agent_params() {
   teardown
 }
 
+test_generate_agent_params_prefers_execution_request() {
+  setup
+
+  local task_file="${TEST_DIR}/task.md"
+  echo "# Task\n\nImplement request-backed prompt." > "$task_file"
+
+  local subagent_id
+  subagent_id=$(spawn_subagent "$task_file" "$TEST_DIR" "haiku")
+
+  prepare_for_agent_execution "$subagent_id" "$TEST_DIR" > /dev/null
+
+  local params
+  params=$(generate_agent_params "$subagent_id" "$TEST_DIR")
+
+  if assert_json_value "$params" ".model" "claude-haiku-4-5" "Model should come from execution request" && \
+     assert_json_value "$params" ".description" "$subagent_id" "Description should come from execution request" && \
+     assert_contains "request-backed prompt" "$(echo "$params" | jq -r '.prompt')" "Prompt should come from execution request"; then
+    pass "test_generate_agent_params_prefers_execution_request"
+  else
+    fail "test_generate_agent_params_prefers_execution_request"
+  fi
+
+  teardown
+}
+
 test_cleanup_completed_subagents() {
   setup
 
@@ -488,11 +618,15 @@ main() {
   test_prepare_subagent_context
   test_get_subagent_status
   test_start_subagent_execution
+  test_prepare_subagent_execution_contract
   test_complete_subagent
+  test_collect_and_finalize_subagent_lifecycle
+  test_finalize_subagent_execution_uses_stored_collected_result
   test_list_active_subagents
   test_aggregate_subagent_results
   test_wait_for_subagents
   test_generate_agent_params
+  test_generate_agent_params_prefers_execution_request
   test_cleanup_completed_subagents
 
   # 결과 요약

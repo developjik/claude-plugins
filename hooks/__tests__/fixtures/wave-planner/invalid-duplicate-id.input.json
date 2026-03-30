@@ -1,0 +1,14 @@
+[
+  {
+    "id": "task-a",
+    "dependencies": []
+  },
+  {
+    "id": "task-a",
+    "dependencies": []
+  },
+  {
+    "id": "task-b",
+    "dependencies": ["task-a"]
+  }
+]

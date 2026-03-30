@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "order": ["lint", "unit-test", "package", "deploy"],
+  "waves": [
+    ["lint"],
+    ["unit-test", "package"],
+    ["deploy"]
+  ],
+  "validation": {
+    "valid": true,
+    "duplicate_ids": [],
+    "missing_dependencies": []
+  },
+  "unresolved": []
+}

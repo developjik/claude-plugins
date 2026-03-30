@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "order": ["prepare", "review", "ship"],
+  "waves": [
+    ["prepare"],
+    ["review"],
+    ["ship"]
+  ],
+  "validation": {
+    "valid": true,
+    "duplicate_ids": [],
+    "missing_dependencies": []
+  },
+  "unresolved": []
+}

@@ -24,15 +24,25 @@ set -euo pipefail
 # 설정
 # ============================================================================
 
-readonly LSP_TIMEOUT=30        # LSP 요청 타임아웃 (초)
-readonly LSP_MAX_RETRIES=3     # 최대 재시도 횟수
+readonly LSP_TIMEOUT=30    # LSP 요청 타임아웃 (초)
+readonly LSP_MAX_RETRIES=3 # 최대 재시도 횟수
 readonly LSP_CACHE_DIR=".harness/lsp-cache"
+
+if ! declare -f lsp_typescript_diagnostics > /dev/null 2>&1; then
+  # shellcheck source=hooks/lib/lsp-diagnostics.sh
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lsp-diagnostics.sh"
+fi
+
+if ! declare -f lsp_js_ts_symbols > /dev/null 2>&1; then
+  # shellcheck source=hooks/lib/lsp-symbols.sh
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lsp-symbols.sh"
+fi
 
 # 언어별 서버 매핑 (bash 3.2 호환)
 get_lsp_server() {
   local lang="${1:-}"
   case "$lang" in
-    typescript|javascript|typescriptreact|javascriptreact)
+    typescript | javascript | typescriptreact | javascriptreact)
       echo "typescript-language-server --stdio"
       ;;
     python)
@@ -47,7 +57,7 @@ get_lsp_server() {
     java)
       echo "jdtls"
       ;;
-    c|cpp)
+    c | cpp)
       echo "clangd"
       ;;
     *)
@@ -64,13 +74,13 @@ _get_language_from_extension() {
     tsx) echo "typescriptreact" ;;
     js) echo "javascript" ;;
     jsx) echo "javascriptreact" ;;
-    mjs|cjs) echo "javascript" ;;
+    mjs | cjs) echo "javascript" ;;
     py) echo "python" ;;
     go) echo "go" ;;
     rs) echo "rust" ;;
     java) echo "java" ;;
     c) echo "c" ;;
-    cpp|cc|cxx) echo "cpp" ;;
+    cpp | cc | cxx) echo "cpp" ;;
     h) echo "c" ;;
     hpp) echo "cpp" ;;
     *) echo "" ;;
@@ -113,7 +123,7 @@ language_server_available() {
 
   local server_name
   server_name=$(echo "$server_cmd" | cut -d' ' -f1)
-  command -v "$server_name" >/dev/null 2>&1
+  command -v "$server_name" > /dev/null 2>&1
 }
 
 # detect_project_language <project_root>
@@ -133,9 +143,9 @@ detect_project_language() {
   fi
 
   # Python
-  if [[ -f "${project_root}/pyproject.toml" ]] || \
-     [[ -f "${project_root}/setup.py" ]] || \
-     [[ -f "${project_root}/requirements.txt" ]]; then
+  if [[ -f "${project_root}/pyproject.toml" ]] \
+    || [[ -f "${project_root}/setup.py" ]] \
+    || [[ -f "${project_root}/requirements.txt" ]]; then
     echo "python"
     return 0
   fi
@@ -153,8 +163,8 @@ detect_project_language() {
   fi
 
   # Java
-  if [[ -f "${project_root}/pom.xml" ]] || \
-     [[ -f "${project_root}/build.gradle" ]]; then
+  if [[ -f "${project_root}/pom.xml" ]] \
+    || [[ -f "${project_root}/build.gradle" ]]; then
     echo "java"
     return 0
   fi
@@ -233,8 +243,9 @@ lsp_diagnostics() {
   fi
 
   # 캐시 확인
-  local cache_file="${project_root}/${LSP_CACHE_DIR}/diagnostics/$(basename "$file_path").json"
-  if [[ -f "$cache_file" ]] && [[ $(($(date +%s) - $(stat -f %m "$cache_file" 2>/dev/null || echo 0))) -lt 60 ]]; then
+  local cache_file
+  cache_file="${project_root}/${LSP_CACHE_DIR}/diagnostics/$(basename "$file_path").json"
+  if lsp_cache_is_fresh "$cache_file" 60; then
     cat "$cache_file"
     return 0
   fi
@@ -250,7 +261,7 @@ lsp_diagnostics() {
   language=$(detect_project_language "$project_root")
 
   case "$language" in
-    typescript|javascript)
+    typescript | javascript)
       diagnostics=$(_get_typescript_diagnostics "$file_path" "$project_root")
       ;;
     python)
@@ -273,125 +284,22 @@ lsp_diagnostics() {
 
 # TypeScript 진단 (tsc 사용)
 _get_typescript_diagnostics() {
-  local file_path="${1:-}"
-  local project_root="${2:-}"
-
-  if [[ ! -f "${project_root}/tsconfig.json" ]]; then
-    echo '[]'
-    return 0
-  fi
-
-  local result
-  result=$(cd "$project_root" && npx tsc --noEmit --pretty false 2>&1 || true)
-
-  # tsc 출력 파싱
-  local diagnostics="[]"
-  while IFS= read -r line; do
-    if [[ "$line" =~ ^(.+)\(([0-9]+),([0-9]+)\):\ error\ (.+)$ ]]; then
-      local file="${BASH_REMATCH[1]}"
-      local line_num="${BASH_REMATCH[2]}"
-      local col="${BASH_REMATCH[3]}"
-      local message="${BASH_REMATCH[4]}"
-
-      if [[ "$file" == "$file_path" ]] || [[ "$file" == *$(basename "$file_path")* ]]; then
-        diagnostics=$(echo "$diagnostics" | jq --arg line "$line_num" --arg col "$col" --arg msg "$message" \
-          '. += [{"range": {"start": {"line": ($line | tonumber), "character": ($col | tonumber)}, "end": {"line": ($line | tonumber), "character": (($col | tonumber) + 1)}}, "severity": 1, "message": $msg, "source": "typescript"}]')
-      fi
-    fi
-  done <<< "$result"
-
-  echo "$diagnostics"
+  lsp_typescript_diagnostics "$@"
 }
 
 # Python 진단 (mypy/pylint 사용)
 _get_python_diagnostics() {
-  local file_path="${1:-}"
-  local project_root="${2:-}"
-
-  local diagnostics="[]"
-
-  # mypy 시도
-  if command -v mypy &>/dev/null; then
-    local result
-    result=$(cd "$project_root" && mypy --output json "$file_path" 2>/dev/null || true)
-
-    if [[ -n "$result" ]]; then
-      while IFS= read -r item; do
-        local severity=3
-        if echo "$item" | jq -e '.error' &>/dev/null; then
-          severity=1
-        fi
-
-        diagnostics=$(echo "$diagnostics" | jq --argjson item "$item" --argjson sev "$severity" \
-          '. += [{"range": {"start": {"line": ($item.line | tonumber), "character": ($item.column | tonumber)}, "end": {"line": ($item.line | tonumber), "character": (($item.column | tonumber) + 1)}}, "severity": $sev, "message": $item.message, "source": "mypy"}]')
-      done <<< "$(echo "$result" | jq -c '.[]' 2>/dev/null || true)"
-    fi
-  fi
-
-  echo "$diagnostics"
+  lsp_python_diagnostics "$@"
 }
 
 # Go 진단 (go vet 사용)
 _get_go_diagnostics() {
-  local file_path="${1:-}"
-  local project_root="${2:-}"
-
-  local diagnostics="[]"
-
-  if command -v go &>/dev/null; then
-    local result
-    result=$(cd "$project_root" && go vet ./... 2>&1 || true)
-
-    # go vet 출력 파싱 (간소화)
-    while IFS= read -r line; do
-      if [[ "$line" =~ ^(.+):([0-9]+):([0-9]+):\ (.+)$ ]]; then
-        local file="${BASH_REMATCH[1]}"
-        local line_num="${BASH_REMATCH[2]}"
-        local col="${BASH_REMATCH[3]}"
-        local message="${BASH_REMATCH[4]}"
-
-        diagnostics=$(echo "$diagnostics" | jq --arg line "$line_num" --arg col "$col" --arg msg "$message" \
-          '. += [{"range": {"start": {"line": ($line | tonumber), "character": ($col | tonumber)}, "end": {"line": ($line | tonumber), "character": (($col | tonumber) + 1)}}, "severity": 2, "message": $msg, "source": "go vet"}]')
-      fi
-    done <<< "$result"
-  fi
-
-  echo "$diagnostics"
+  lsp_go_diagnostics "$@"
 }
 
 # Rust 진단 (cargo check 사용)
 _get_rust_diagnostics() {
-  local file_path="${1:-}"
-  local project_root="${2:-}"
-
-  local diagnostics="[]"
-
-  if command -v cargo &>/dev/null; then
-    local result
-    result=$(cd "$project_root" && cargo check --message-format=json 2>&1 || true)
-
-    # cargo check JSON 출력 파싱
-    while IFS= read -r line; do
-      if echo "$line" | jq -e '.reason == "compiler-message"' &>/dev/null; then
-        local message=$(echo "$line" | jq -r '.message.rendered')
-        local severity=2
-        if echo "$line" | jq -e '.message.level == "error"' &>/dev/null; then
-          severity=1
-        fi
-
-        local spans=$(echo "$line" | jq -c '.message.spans[0] // empty')
-        if [[ "$spans" != "null" ]] && [[ -n "$spans" ]]; then
-          local line_num=$(echo "$spans" | jq -r '.line_start')
-          local col=$(echo "$spans" | jq -r '.column_start')
-
-          diagnostics=$(echo "$diagnostics" | jq --arg line "$line_num" --arg col "$col" --arg msg "$message" --argjson sev "$severity" \
-            '. += [{"range": {"start": {"line": ($line | tonumber), "character": ($col | tonumber)}, "end": {"line": ($line | tonumber), "character": (($col | tonumber) + 1)}}, "severity": $sev, "message": $msg, "source": "rustc"}]')
-        fi
-      fi
-    done <<< "$result"
-  fi
-
-  echo "$diagnostics"
+  lsp_rust_diagnostics "$@"
 }
 
 # ============================================================================
@@ -446,7 +354,7 @@ lsp_goto_definition() {
       def_line="$found_line"
       break
     fi
-  done < <(cd "$project_root" && grep -rn "$symbol" --include="*.ts" --include="*.js" --include="*.py" --include="*.go" src/ 2>/dev/null | head -20)
+  done < <(cd "$project_root" && grep -rn "$symbol" --include="*.ts" --include="*.js" --include="*.py" --include="*.go" src/ 2> /dev/null | head -20)
 
   if [[ -n "$def_file" ]] && [[ -n "$def_line" ]]; then
     jq -n \
@@ -486,7 +394,7 @@ lsp_find_references() {
 
   # 현재 라인에서 심볼 추출
   local symbol
-  symbol=$(sed -n "$((line + 1))p" "$file_path" | grep -o '[A-Za-z_][A-Za-z0-9_]*' | head -1)
+  symbol=$(lsp_extract_symbol_zero_based_line "$file_path" "$line")
 
   if [[ -z "$symbol" ]]; then
     echo '[]'
@@ -501,11 +409,8 @@ lsp_find_references() {
       continue
     fi
 
-    references=$(echo "$references" | jq \
-      --arg uri "file://${project_root}/${found_file}" \
-      --argjson line "$found_line" \
-      '. += [{"uri": $uri, "range": {"start": {"line": $line, "character": 0}, "end": {"line": $line, "character": 10}}}]')
-  done < <(cd "$project_root" && grep -rn "\b$symbol\b" --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" src/ 2>/dev/null | head -50)
+    references=$(lsp_append_location "$references" "file://${project_root}/${found_file}" "$found_line")
+  done < <(cd "$project_root" && grep -rn "\b$symbol\b" --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" src/ 2> /dev/null | head -50)
 
   echo "$references"
 }
@@ -547,7 +452,7 @@ lsp_rename() {
 
   # 현재 심볼 추출
   local old_symbol
-  old_symbol=$(sed -n "$((line + 1))p" "$file_path" | grep -o '[A-Za-z_][A-Za-z0-9_]*' | head -1)
+  old_symbol=$(lsp_extract_symbol_zero_based_line "$file_path" "$line")
 
   if [[ -z "$old_symbol" ]]; then
     echo '{"error": "symbol_not_found"}'
@@ -562,20 +467,18 @@ lsp_rename() {
   local changes="{}"
 
   # 정의 포함
-  changes=$(echo "$changes" | jq --arg uri "file://${file_path}" \
-    '.[$uri] = [{"range": {"start": {"line": '"$line"', "character": 0}, "end": {"start": {"line": '"$line"', "character": 10}}}, "newText": "'"$new_name"'"}]')
+  changes=$(lsp_append_workspace_edit "$changes" "file://${file_path}" "$line" "$new_name")
 
   # 참조 포함
   local ref_count
   ref_count=$(echo "$references" | jq 'length')
 
-  for ((i=0; i<ref_count; i++)); do
+  for ((i = 0; i < ref_count; i++)); do
     local ref_uri ref_line
     ref_uri=$(echo "$references" | jq -r ".[$i].uri")
     ref_line=$(echo "$references" | jq -r ".[$i].range.start.line")
 
-    changes=$(echo "$changes" | jq --arg uri "$ref_uri" --argjson line "$ref_line" --arg new "$new_name" \
-      '.[$uri] += [{"range": {"start": {"line": $line, "character": 0}}, "newText": $new}]')
+    changes=$(lsp_append_workspace_edit "$changes" "$ref_uri" "$ref_line" "$new_name")
   done
 
   jq -n --argjson changes "$changes" \
@@ -609,7 +512,7 @@ lsp_get_symbols() {
   local ext="${file_path##*.}"
 
   case "$ext" in
-    ts|tsx|js|jsx)
+    ts | tsx | js | jsx)
       symbols=$(_get_js_ts_symbols "$file_path")
       ;;
     py)
@@ -628,131 +531,22 @@ lsp_get_symbols() {
 
 # JavaScript/TypeScript 심볼 추출
 _get_js_ts_symbols() {
-  local file_path="${1:-}"
-  local symbols="[]"
-  local line_num=0
-
-  # 간단한 regex 기반 심볼 추출
-  while IFS= read -r line; do
-    local name="" kind=""
-
-    # Class
-    if [[ "$line" =~ (class|interface|type)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*) ]]; then
-      name="${BASH_REMATCH[2]}"
-      kind="${BASH_REMATCH[1]}"
-    # Function
-    elif [[ "$line" =~ (function|const|let|var)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*= ]]; then
-      name="${BASH_REMATCH[2]}"
-      kind="${BASH_REMATCH[1]}"
-    # Function declaration
-    elif [[ "$line" =~ function[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*\(|function[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*\< ]]; then
-      name="${BASH_REMATCH[1]}"
-      kind="function"
-    fi
-
-    if [[ -n "$name" ]]; then
-      symbols=$(echo "$symbols" | jq --arg name "$name" --arg kind "$kind" --argjson line "$line_num" \
-        '. += [{"name": $name, "kind": $kind, "range": {"start": {"line": $line, "character": 0}}}]')
-    fi
-
-    line_num=$((line_num + 1))
-  done < "$file_path"
-
-  echo "$symbols"
+  lsp_js_ts_symbols "$@"
 }
 
 # Python 심볼 추출
 _get_python_symbols() {
-  local file_path="${1:-}"
-  local symbols="[]"
-  local line_num=0
-
-  while IFS= read -r line; do
-    local name="" kind=""
-
-    # Class
-    if [[ "$line" =~ ^class[[:space:]]+([A-Za-z_][A-Za-z0-9_]*) ]]; then
-      name="${BASH_REMATCH[1]}"
-      kind="class"
-    # Function
-    elif [[ "$line" =~ ^def[[:space:]]+([a-z_][a-z0-9_]*) ]]; then
-      name="${BASH_REMATCH[1]}"
-      kind="function"
-    # Async function
-    elif [[ "$line" =~ ^async[[:space:]]+def[[:space:]]+([a-z_][a-z0-9_]*) ]]; then
-      name="${BASH_REMATCH[1]}"
-      kind="function"
-    fi
-
-    if [[ -n "$name" ]]; then
-      symbols=$(echo "$symbols" | jq --arg name "$name" --arg kind "$kind" --argjson line "$line_num" \
-        '. += [{"name": $name, "kind": $kind, "range": {"start": {"line": $line, "character": 0}}}]')
-    fi
-
-    line_num=$((line_num + 1))
-  done < "$file_path"
-
-  echo "$symbols"
+  lsp_python_symbols "$@"
 }
 
 # Go 심볼 추출
 _get_go_symbols() {
-  local file_path="${1:-}"
-  local symbols="[]"
-  local line_num=0
-
-  while IFS= read -r line; do
-    local name="" kind=""
-
-    # Struct/Interface
-    if [[ "$line" =~ ^(type|struct|interface)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*) ]]; then
-      name="${BASH_REMATCH[2]}"
-      kind="${BASH_REMATCH[1]}"
-    # Function
-    elif [[ "$line" =~ ^func[[:space:]]+\(?[A-Za-z_*]+\)?[[:space:]]*([A-Za-z_][A-Za-z0-9_]*) ]]; then
-      name="${BASH_REMATCH[1]}"
-      kind="function"
-    fi
-
-    if [[ -n "$name" ]]; then
-      symbols=$(echo "$symbols" | jq --arg name "$name" --arg kind "$kind" --argjson line "$line_num" \
-        '. += [{"name": $name, "kind": $kind, "range": {"start": {"line": $line, "character": 0}}}]')
-    fi
-
-    line_num=$((line_num + 1))
-  done < "$file_path"
-
-  echo "$symbols"
+  lsp_go_symbols "$@"
 }
 
 # Rust 심볼 추출
 _get_rust_symbols() {
-  local file_path="${1:-}"
-  local symbols="[]"
-  local line_num=0
-
-  while IFS= read -r line; do
-    local name="" kind=""
-
-    # Struct/Enum/Trait
-    if [[ "$line" =~ ^(struct|enum|trait|type)[[:space:]]+([A-Za-z_][A-Za-z0-9_]*) ]]; then
-      name="${BASH_REMATCH[2]}"
-      kind="${BASH_REMATCH[1]}"
-    # Function
-    elif [[ "$line" =~ ^(pub[[:space:]]+)?fn[[:space:]]+([a-z_][a-z0-9_]*) ]]; then
-      name="${BASH_REMATCH[2]}"
-      kind="function"
-    fi
-
-    if [[ -n "$name" ]]; then
-      symbols=$(echo "$symbols" | jq --arg name "$name" --arg kind "$kind" --argjson line "$line_num" \
-        '. += [{"name": $name, "kind": $kind, "range": {"start": {"line": $line, "character": 0}}}]')
-    fi
-
-    line_num=$((line_num + 1))
-  done < "$file_path"
-
-  echo "$symbols"
+  lsp_rust_symbols "$@"
 }
 
 # ============================================================================
@@ -762,108 +556,7 @@ _get_rust_symbols() {
 # lsp_project_diagnostics <project_root>
 # Returns: JSON with all project diagnostics
 lsp_project_diagnostics() {
-  local project_root="${1:-$(pwd)}"
-
-  local language
-  language=$(detect_project_language "$project_root")
-
-  local all_diagnostics="[]"
-
-  case "$language" in
-    typescript|javascript)
-      # TypeScript: tsc --noEmit
-      local result
-      result=$(cd "$project_root" && npx tsc --noEmit --pretty false 2>&1 || true)
-
-      while IFS= read -r line; do
-        if [[ "$line" =~ ^(.+)\(([0-9]+),([0-9]+)\):\ (error|warning)\ (.+)$ ]]; then
-          local file="${BASH_REMATCH[1]}"
-          local line_num="${BASH_REMATCH[2]}"
-          local col="${BASH_REMATCH[3]}"
-          local severity_word="${BASH_REMATCH[4]}"
-          local message="${BASH_REMATCH[5]}"
-
-          local severity=3
-          [[ "$severity_word" == "error" ]] && severity=1
-          [[ "$severity_word" == "warning" ]] && severity=2
-
-          all_diagnostics=$(echo "$all_diagnostics" | jq \
-            --arg file "$file" --argjson line "$line_num" --argjson col "$col" \
-            --argjson sev "$severity" --arg msg "$message" \
-            '. += [{"file": $file, "line": $line, "column": $col, "severity": $sev, "message": $msg}]')
-        fi
-      done <<< "$result"
-      ;;
-
-    python)
-      # Python: mypy
-      if command -v mypy &>/dev/null; then
-        local result
-        result=$(cd "$project_root" && mypy --output json . 2>/dev/null || true)
-
-        while IFS= read -r item; do
-          local file=$(echo "$item" | jq -r '.file')
-          local line=$(echo "$item" | jq -r '.line')
-          local col=$(echo "$item" | jq -r '.column // 0')
-          local message=$(echo "$item" | jq -r '.message')
-          local severity=3
-          [[ "$(echo "$item" | jq -r '.severity')" == "error" ]] && severity=1
-
-          all_diagnostics=$(echo "$all_diagnostics" | jq \
-            --arg file "$file" --argjson line "$line" --argjson col "$col" \
-            --argjson sev "$severity" --arg msg "$message" \
-            '. += [{"file": $file, "line": $line, "column": $col, "severity": $sev, "message": $msg}]')
-        done <<< "$(echo "$result" | jq -c '.[]' 2>/dev/null || true)"
-      fi
-      ;;
-
-    go)
-      # Go: go vet
-      local result
-      result=$(cd "$project_root" && go vet ./... 2>&1 || true)
-
-      while IFS= read -r line; do
-        if [[ "$line" =~ ^(.+):([0-9]+):([0-9]+):\ (.+)$ ]]; then
-          all_diagnostics=$(echo "$all_diagnostics" | jq \
-            --arg file "${BASH_REMATCH[1]}" \
-            --argjson line "${BASH_REMATCH[2]}" \
-            --argjson col "${BASH_REMATCH[3]}" \
-            --arg msg "${BASH_REMATCH[4]}" \
-            '. += [{"file": $file, "line": $line, "column": $col, "severity": 2, "message": $msg}]')
-        fi
-      done <<< "$result"
-      ;;
-
-    rust)
-      # Rust: cargo check
-      local result
-      result=$(cd "$project_root" && cargo check --message-format=json 2>&1 || true)
-
-      while IFS= read -r line; do
-        if echo "$line" | jq -e '.reason == "compiler-message"' &>/dev/null; then
-          local message=$(echo "$line" | jq -r '.message.rendered')
-          local spans=$(echo "$line" | jq -c '.message.spans[0] // empty')
-
-          if [[ "$spans" != "null" ]]; then
-            all_diagnostics=$(echo "$all_diagnostics" | jq \
-              --arg file "$(echo "$spans" | jq -r '.file_name')" \
-              --argjson line "$(echo "$spans" | jq -r '.line_start')" \
-              --argjson col "$(echo "$spans" | jq -r '.column_start')" \
-              --arg msg "$message" \
-              '. += [{"file": $file, "line": $line, "column": $col, "severity": 1, "message": $msg}]')
-          fi
-        fi
-      done <<< "$result"
-      ;;
-  esac
-
-  # 요약 추가
-  local error_count warning_count
-  error_count=$(echo "$all_diagnostics" | jq '[.[] | select(.severity == 1)] | length')
-  warning_count=$(echo "$all_diagnostics" | jq '[.[] | select(.severity == 2)] | length')
-
-  echo "$all_diagnostics" | jq --argjson errors "$error_count" --argjson warnings "$warning_count" \
-    '{"diagnostics": ., "summary": {"errors": $errors, "warnings": $warnings}}'
+  lsp_collect_project_diagnostics "$@"
 }
 
 # ============================================================================
@@ -875,51 +568,15 @@ lsp_project_diagnostics() {
 lsp_has_errors() {
   local project_root="${1:-$(pwd)}"
 
-  local result
-  result=$(lsp_project_diagnostics "$project_root")
+  if lsp_project_has_errors "$project_root"; then
+    return 1
+  fi
 
-  local error_count
-  error_count=$(echo "$result" | jq '.summary.errors')
-
-  [[ "$error_count" -gt 0 ]] && return 1
   return 0
 }
 
 # lsp_format_diagnostic_report <project_root>
 # Returns: Human-readable diagnostic report
 lsp_format_diagnostic_report() {
-  local project_root="${1:-$(pwd)}"
-
-  local result
-  result=$(lsp_project_diagnostics "$project_root")
-
-  local errors warnings
-  errors=$(echo "$result" | jq '.summary.errors')
-  warnings=$(echo "$result" | jq '.summary.warnings')
-
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "LSP Diagnostic Report"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo ""
-  echo "Errors: $errors"
-  echo "Warnings: $warnings"
-  echo ""
-
-  if [[ "$errors" -gt 0 ]]; then
-    echo "❌ Errors:"
-    echo "$result" | jq -r '.diagnostics[] | select(.severity == 1) | "  \(.file):\(.line): \(.message)"'
-    echo ""
-  fi
-
-  if [[ "$warnings" -gt 0 ]]; then
-    echo "⚠️  Warnings:"
-    echo "$result" | jq -r '.diagnostics[] | select(.severity == 2) | "  \(.file):\(.line): \(.message)"'
-    echo ""
-  fi
-
-  if [[ "$errors" -eq 0 ]] && [[ "$warnings" -eq 0 ]]; then
-    echo "✅ No issues found"
-  fi
-
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  lsp_render_diagnostic_report "$@"
 }

@@ -32,8 +32,9 @@
 Check 스킬이 실제 테스트를 실행하고 결과를 분석하도록 개선합니다.
 
 ### 현재 상태
-- `skills/check/SKILL.md`: 검증 체크리스트만 존재, 실제 테스트 실행 없음
-- `hooks/lib/wave-executor.sh`: 태스크 실행 로직만 있고 테스트 실행 없음
+- `skills/check/SKILL.md`: 검증 클래스와 2단계 리뷰 흐름이 문서화되어 있음
+- `hooks/lib/test-runner.sh`: 다중 프레임워크 테스트 실행 함수가 구현되어 있음
+- 후속 과제: 패키지 매니저 다양성, 감지 정확도, 통합 판정 품질 보강
 
 ### 구현 계획
 
@@ -324,8 +325,9 @@ run_verification() {
 Wave executor가 시뮬레이션이 아닌 실제 서브에이전트를 스폰하여 병렬 실행합니다.
 
 ### 현재 상태
-- `hooks/lib/wave-executor.sh`: `execute_task()`가 로그만 기록, 실제 실행 없음
-- "실제 구현에서는 Claude Code API 호출" 주석만 존재
+- `hooks/lib/subagent-spawner.sh`: 서브에이전트 컨텍스트/상태 파일 생성 로직 구현됨
+- `hooks/lib/wave-executor.sh`: 서브에이전트 파라미터 생성과 결과 집계 흐름이 구현됨
+- 후속 과제: 실제 실행 어댑터와 라이프사이클 계약을 더 명확히 분리
 
 ### 구현 계획
 
@@ -700,9 +702,9 @@ run_tests
 파일 기반 상태를 상태 머신으로 전환하여 롤백, 크래시 복구, 감사 가능하게 합니다.
 
 ### 현재 상태
-- `.harness/state/` 디렉토리에 개별 파일로 상태 저장
-- 상태 전환에 대한 검증 없음
-- 롤백 메커니즘 없음
+- `hooks/lib/state-machine.sh`: 상태 전이, 스냅샷, 롤백 로직이 구현됨
+- `.harness/engine/` 하위에 상태 파일과 전환 기록을 저장함
+- 후속 과제: 다른 모듈과의 인터페이스 정리 및 문서 정확도 보강
 
 ### 구현 계획
 

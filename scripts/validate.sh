@@ -26,7 +26,7 @@ run_test_suite() {
   local test_file="${1:-}"
   local label="${2:-$(basename "$test_file")}"
 
-  if bash "$test_file" >/tmp/harness-validate-test.log 2>&1; then
+  if bash "$test_file" > /tmp/harness-validate-test.log 2>&1; then
     echo -e "${GREEN}[OK]${NC} ${label}"
     return 0
   fi
@@ -36,14 +36,41 @@ run_test_suite() {
   return 1
 }
 
+run_shell_lint() {
+  local lint_script="scripts/lint-shell.sh"
+
+  if [[ ! -f "$lint_script" ]]; then
+    echo -e "${YELLOW}[WARN]${NC} ${lint_script} not found"
+    WARNINGS=$((WARNINGS + 1))
+    return 0
+  fi
+
+  if ! command -v shellcheck > /dev/null 2>&1 || ! command -v shfmt > /dev/null 2>&1; then
+    echo -e "${YELLOW}[WARN]${NC} shellcheck/shfmt not found (shell lint skipped)"
+    WARNINGS=$((WARNINGS + 1))
+    return 0
+  fi
+
+  if bash "$lint_script" --check > /tmp/harness-shell-lint.log 2>&1; then
+    echo -e "${GREEN}[OK]${NC} shellcheck/shfmt passed"
+    return 0
+  fi
+
+  echo -e "${RED}[ERROR]${NC} shellcheck/shfmt failed"
+  tail -40 /tmp/harness-shell-lint.log || true
+  return 1
+}
+
 run_quick_test_suites() {
   local test_file
   local quick_suites=(
     "hooks/__tests__/common.test.sh"
     "hooks/__tests__/feature-context.test.sh"
     "hooks/__tests__/hook-flow.test.sh"
+    "hooks/__tests__/skill-evaluation.test.sh"
     "hooks/__tests__/state-machine.test.sh"
     "hooks/__tests__/test-runner.test.sh"
+    "hooks/__tests__/wave-plan-contract.test.sh"
   )
 
   for test_file in "${quick_suites[@]}"; do
@@ -78,6 +105,174 @@ run_full_test_suites() {
   fi
 }
 
+count_test_cases() {
+  local count
+  if command -v rg > /dev/null 2>&1; then
+    count=$(rg -n '^test_[a-zA-Z0-9_]+' hooks/__tests__/*.sh 2> /dev/null | wc -l | tr -d ' ')
+  else
+    count=$(find hooks/__tests__ -maxdepth 1 -name '*.sh' -exec grep -En '^test_[a-zA-Z0-9_]+' {} + 2> /dev/null | wc -l | tr -d ' ')
+  fi
+  echo "${count:-0}"
+}
+
+check_literal_present() {
+  local file_path="${1:-}"
+  local expected="${2:-}"
+  local label="${3:-$file_path}"
+
+  if grep -Fq -- "$expected" "$file_path" 2> /dev/null; then
+    echo -e "${GREEN}[OK]${NC} ${label}"
+    return 0
+  fi
+
+  echo -e "${RED}[ERROR]${NC} ${label}"
+  echo "        expected: $expected"
+  return 1
+}
+
+check_markdown_links() {
+  local doc_file="${1:-}"
+  local doc_dir target resolved broken found_any
+  doc_dir="$(cd "$(dirname "$doc_file")" && pwd)"
+  broken=0
+  found_any=false
+
+  while IFS= read -r target; do
+    [[ -n "$target" ]] || continue
+    found_any=true
+
+    case "$target" in
+      http://* | https://* | mailto:* | file://* | app://* | plugin://* | collection://* | discussion://* | notion://* | view://*)
+        continue
+        ;;
+      \#*)
+        continue
+        ;;
+    esac
+
+    target="${target%%\#*}"
+    target="${target%%\?*}"
+    [[ -n "$target" ]] || continue
+
+    if [[ "$target" == /* ]]; then
+      resolved="$target"
+    else
+      resolved="${doc_dir}/${target}"
+    fi
+
+    if [[ ! -e "$resolved" ]]; then
+      echo -e "${RED}[ERROR]${NC} Broken link in ${doc_file}: ${target}"
+      ERRORS=$((ERRORS + 1))
+      broken=$((broken + 1))
+    fi
+  done < <(perl -ne '
+    if (/^```/) { $in_fence = !$in_fence; next; }
+    next if $in_fence;
+    s/`[^`]*`//g;
+    while(/\[[^][]*\]\(([^)]+)\)/g){ print "$1\n" }
+  ' "$doc_file")
+
+  if [[ "$found_any" == false ]] || [[ "$broken" -eq 0 ]]; then
+    echo -e "${GREEN}[OK]${NC} ${doc_file} links"
+  fi
+}
+
+validate_doc_consistency() {
+  local skill_count agent_count suite_count case_count
+  skill_count=$(find skills -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+  agent_count=$(find agents -maxdepth 1 -name '*.md' | wc -l | tr -d ' ')
+  suite_count=$(find hooks/__tests__ -maxdepth 1 -name '*.test.sh' | wc -l | tr -d ' ')
+  case_count=$(count_test_cases)
+
+  echo ""
+  echo "--- 8. Documentation Consistency ---"
+
+  while IFS= read -r doc_file; do
+    [[ -n "$doc_file" ]] || continue
+    check_markdown_links "$doc_file"
+  done < <(
+    printf '%s\n' "README.md"
+    find docs -type f -name '*.md' | sort
+  )
+
+  if ! check_literal_present "README.md" "${agent_count}개 전문 에이전트(인지 모드)와 ${skill_count}개 실행 스킬" "README summary counts"; then
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! check_literal_present "README.md" "├── agents/                         # 에이전트 (${agent_count}개)" "README agent tree count"; then
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! check_literal_present "README.md" "├── skills/                         # 스킬 (${skill_count}개)" "README skill tree count"; then
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! check_literal_present "README.md" "훅 테스트 (${suite_count} suites / ${case_count} cases)" "README test count"; then
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! check_literal_present "docs/specs/fresh-context/plan.md" "- **Agent 시스템**: ${agent_count}개 전문 에이전트" "fresh-context agent count"; then
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! check_literal_present "docs/specs/fresh-context/plan.md" "- **Skill 시스템**: ${skill_count}개 실행 스킬" "fresh-context skill count"; then
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! check_literal_present "docs/analysis/analysis-report.md" "| **harness-engineering** | ${skill_count} |" "analysis-report skill count"; then
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if ! check_literal_present "docs/analysis/project-analysis.md" "├── skills/                   # 스킬 (실행 절차, ${skill_count}개)" "project-analysis skill count"; then
+    ERRORS=$((ERRORS + 1))
+  fi
+}
+
+validate_wave_planner_boundary() {
+  local search_pattern='resolve_task_dependency_layers_(bash|python)[[:space:]]*\('
+  local allowed_files=(
+    "hooks/lib/wave-graph.sh"
+    "hooks/__tests__/wave-plan-contract.test.sh"
+    "scripts/validate.sh"
+  )
+  local matches="" allowed_file match file_path is_allowed disallowed=0
+
+  echo ""
+  echo "--- 9. Wave Planner Boundary ---"
+
+  if command -v rg > /dev/null 2>&1; then
+    matches=$(rg -n "$search_pattern" hooks scripts 2> /dev/null || true)
+  else
+    matches=$(grep -REn "$search_pattern" hooks scripts 2> /dev/null || true)
+  fi
+
+  while IFS= read -r match; do
+    [[ -n "$match" ]] || continue
+    file_path="${match%%:*}"
+    is_allowed=false
+
+    for allowed_file in "${allowed_files[@]}"; do
+      if [[ "$file_path" == "$allowed_file" ]]; then
+        is_allowed=true
+        break
+      fi
+    done
+
+    if [[ "$is_allowed" == false ]]; then
+      echo -e "${RED}[ERROR]${NC} Direct planner backend usage outside allowed boundary: ${match}"
+      disallowed=$((disallowed + 1))
+    fi
+  done <<< "$matches"
+
+  if [[ "$disallowed" -eq 0 ]]; then
+    echo -e "${GREEN}[OK]${NC} Wave planner backend boundary intact"
+    return 0
+  fi
+
+  ERRORS=$((ERRORS + disallowed))
+  return 1
+}
+
 echo "========================================"
 echo "Harness Engineering Validation"
 echo "========================================"
@@ -91,7 +286,7 @@ echo ""
 echo "--- 1. Basic Checks ---"
 
 # Claude CLI 확인
-if ! command -v claude >/dev/null 2>&1; then
+if ! command -v claude > /dev/null 2>&1; then
   echo -e "${YELLOW}[WARN]${NC} claude CLI not found (optional for plugin validation)"
   WARNINGS=$((WARNINGS + 1))
 else
@@ -99,7 +294,7 @@ else
 fi
 
 # jq 확인
-if ! command -v jq >/dev/null 2>&1; then
+if ! command -v jq > /dev/null 2>&1; then
   echo -e "${YELLOW}[WARN]${NC} jq not found (required for JSON validation)"
   WARNINGS=$((WARNINGS + 1))
 else
@@ -107,21 +302,32 @@ else
 fi
 
 # ============================================================================
-# 2. Plugin Manifest 검증
+# 2. Shell 정적 분석
 # ============================================================================
 
 echo ""
-echo "--- 2. Plugin Manifest ---"
+echo "--- 2. Shell Static Analysis ---"
+
+if ! run_shell_lint; then
+  ERRORS=$((ERRORS + 1))
+fi
+
+# ============================================================================
+# 3. Plugin Manifest 검증
+# ============================================================================
+
+echo ""
+echo "--- 3. Plugin Manifest ---"
 
 if [[ -f ".claude-plugin/plugin.json" ]]; then
-  if command -v jq >/dev/null 2>&1; then
-    if jq empty .claude-plugin/plugin.json 2>/dev/null; then
+  if command -v jq > /dev/null 2>&1; then
+    if jq empty .claude-plugin/plugin.json 2> /dev/null; then
       echo -e "${GREEN}[OK]${NC} plugin.json is valid JSON"
 
       # 필수 필드 확인
       required_fields=("name" "description")
       for field in "${required_fields[@]}"; do
-        if jq -e ".$field" .claude-plugin/plugin.json >/dev/null 2>&1; then
+        if jq -e ".$field" .claude-plugin/plugin.json > /dev/null 2>&1; then
           echo -e "${GREEN}[OK]${NC} Required field '$field' present"
         else
           echo -e "${RED}[ERROR]${NC} Missing required field '$field' in plugin.json"
@@ -139,16 +345,16 @@ else
 fi
 
 # ============================================================================
-# 3. Hooks 검증
+# 4. Hooks 검증
 # ============================================================================
 
 echo ""
-echo "--- 3. Hooks ---"
+echo "--- 4. Hooks ---"
 
 # hooks.json 검증
 if [[ -f "hooks/hooks.json" ]]; then
-  if command -v jq >/dev/null 2>&1; then
-    if jq empty hooks/hooks.json 2>/dev/null; then
+  if command -v jq > /dev/null 2>&1; then
+    if jq empty hooks/hooks.json 2> /dev/null; then
       echo -e "${GREEN}[OK]${NC} hooks.json is valid JSON"
     else
       echo -e "${RED}[ERROR]${NC} hooks.json is not valid JSON"
@@ -164,7 +370,7 @@ fi
 hook_count=0
 for hook in hooks/*.sh; do
   if [[ -f "$hook" ]]; then
-    if bash -n "$hook" 2>/dev/null; then
+    if bash -n "$hook" 2> /dev/null; then
       hook_count=$((hook_count + 1))
     else
       echo -e "${RED}[ERROR]${NC} Syntax error in $hook"
@@ -178,7 +384,7 @@ echo -e "${GREEN}[OK]${NC} $hook_count hook scripts passed syntax check"
 lib_count=0
 for lib in hooks/lib/*.sh; do
   if [[ -f "$lib" ]]; then
-    if bash -n "$lib" 2>/dev/null; then
+    if bash -n "$lib" 2> /dev/null; then
       lib_count=$((lib_count + 1))
     else
       echo -e "${RED}[ERROR]${NC} Syntax error in $lib"
@@ -191,11 +397,11 @@ if [[ $lib_count -gt 0 ]]; then
 fi
 
 # ============================================================================
-# 4. Skills 검증
+# 5. Skills 검증
 # ============================================================================
 
 echo ""
-echo "--- 4. Skills ---"
+echo "--- 5. Skills ---"
 
 skill_count=0
 skill_errors=0
@@ -245,11 +451,11 @@ else
 fi
 
 # ============================================================================
-# 5. Agents 검증
+# 6. Agents 검증
 # ============================================================================
 
 echo ""
-echo "--- 5. Agents ---"
+echo "--- 6. Agents ---"
 
 agent_count=0
 agent_errors=0
@@ -275,11 +481,11 @@ else
 fi
 
 # ============================================================================
-# 6. Templates 검증
+# 7. Templates 검증
 # ============================================================================
 
 echo ""
-echo "--- 6. Templates ---"
+echo "--- 7. Templates ---"
 
 template_count=0
 required_templates=("plan.md" "design.md" "wrapup.md" "clarify.md")
@@ -296,11 +502,23 @@ done
 echo -e "${GREEN}[OK]${NC} $template_count templates found"
 
 # ============================================================================
-# 7. 단위 테스트 실행
+# 8. 문서 일관성 검증
+# ============================================================================
+
+validate_doc_consistency
+
+# ============================================================================
+# 9. Wave Planner 경계 검증
+# ============================================================================
+
+validate_wave_planner_boundary
+
+# ============================================================================
+# 10. 단위 테스트 실행
 # ============================================================================
 
 echo ""
-echo "--- 7. Test Suites ---"
+echo "--- 10. Test Suites ---"
 
 if [[ "$MODE" == "--quick" ]]; then
   echo "Running core regression suites..."
@@ -311,13 +529,13 @@ else
 fi
 
 # ============================================================================
-# 8. Plugin 검증 (claude CLI 있는 경우)
+# 11. Plugin 검증 (claude CLI 있는 경우)
 # ============================================================================
 
-if command -v claude >/dev/null 2>&1; then
+if command -v claude > /dev/null 2>&1; then
   echo ""
-  echo "--- 8. Claude Plugin Validation ---"
-  if claude plugin validate . 2>/dev/null; then
+  echo "--- 11. Claude Plugin Validation ---"
+  if claude plugin validate . 2> /dev/null; then
     echo -e "${GREEN}[OK]${NC} Claude plugin validation passed"
   else
     echo -e "${YELLOW}[WARN]${NC} Claude plugin validation failed (may be expected)"

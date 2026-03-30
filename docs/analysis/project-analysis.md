@@ -163,7 +163,7 @@ harness-engineering/
 │   ├── librarian.md         # 문서화 전문가
 │   └── debugger.md          # 디버깅 전문가
 │
-├── skills/                   # 스킬 (실행 절차)
+├── skills/                   # 스킬 (실행 절차, 13개)
 │   ├── clarify/SKILL.md     # 0단계: 요청 구체화
 │   ├── plan/SKILL.md        # 1단계: 요구사항 정의
 │   ├── design/SKILL.md      # 2단계: 기술 설계
@@ -173,7 +173,10 @@ harness-engineering/
 │   ├── harness/SKILL.md     # 오케스트레이터
 │   ├── fullrun/SKILL.md     # 전체 자동 실행
 │   ├── debug/SKILL.md       # 4단계 디버깅
-│   └── grill-me/SKILL.md    # 산출물 검증 질문
+│   ├── quick/SKILL.md       # 경량 실행
+│   ├── grill-me/SKILL.md    # 산출물 검증 질문
+│   ├── delegate/SKILL.md    # 태스크 위임
+│   └── recover/SKILL.md     # 상태 복구
 │
 ├── hooks/                    # 훅 스크립트
 │   ├── hooks.json           # 훅 설정 (이벤트 라우팅)
@@ -185,11 +188,11 @@ harness-engineering/
 │   └── on-agent-stop.sh     # 에이전트 종료
 │
 ├── docs/
-│   ├── ARCHITECTURE.md      # 아키텍처 문서
-│   ├── ARTIFACT-CONVENTION.md # 산출물 규약
-│   ├── SKILL-WRITING-GUIDE.md
-│   ├── AGENT-WRITING-GUIDE.md
-│   ├── HOOK-WRITING-GUIDE.md
+│   ├── README.md            # 문서 인덱스
+│   ├── guides/              # 사용/작성 가이드
+│   ├── reference/           # 기술 레퍼런스
+│   ├── analysis/            # 분석 보고서
+│   ├── decisions/           # ADR
 │   ├── templates/           # 산출물 템플릿
 │   │   ├── clarify.md
 │   │   ├── plan.md
@@ -503,8 +506,8 @@ harness-engineering/
 
 ## 관련 문서
 
-- [아키텍처](ARCHITECTURE.md) — PDCA 흐름, 에이전트-스킬 관계, 훅 라이프사이클
-- [산출물 규약](ARTIFACT-CONVENTION.md) — `docs/specs/<feature-slug>/` 기반 SSOT 규칙
-- [스킬 작성 가이드](SKILL-WRITING-GUIDE.md) — 커스텀 스킬 만들기
-- [에이전트 작성 가이드](AGENT-WRITING-GUIDE.md) — 커스텀 에이전트 만들기
-- [훅 작성 가이드](HOOK-WRITING-GUIDE.md) — 커스텀 훅 만들기
+- [아키텍처](../reference/architecture.md) — PDCA 흐름, 에이전트-스킬 관계, 훅 라이프사이클
+- [산출물 규약](../reference/artifact-convention.md) — `docs/specs/<feature-slug>/` 기반 SSOT 규칙
+- [스킬 작성 가이드](../guides/skill-writing.md) — 커스텀 스킬 만들기
+- [에이전트 작성 가이드](../guides/agent-writing.md) — 커스텀 에이전트 만들기
+- [훅 작성 가이드](../guides/hook-writing.md) — 커스텀 훅 만들기

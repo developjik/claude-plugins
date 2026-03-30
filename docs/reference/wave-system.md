@@ -113,6 +113,31 @@ estimated_time: "5min"
 /implement user-auth --waves --dry-run
 ```
 
+## Planner 선택
+
+Wave DAG 계산은 기본적으로 `HARNESS_WAVE_PLANNER=auto` 정책을 사용합니다.
+
+```bash
+# 기본값: Python planner 우선, 인프라 오류 시 Bash fallback
+HARNESS_WAVE_PLANNER=auto
+
+# strict 검증: Python planner 오류를 그대로 노출
+HARNESS_WAVE_PLANNER=python
+
+# 레거시 강제: Bash planner만 사용
+HARNESS_WAVE_PLANNER=bash
+```
+
+`auto` 모드에서 fallback 되는 경우는 다음과 같습니다.
+
+1. `python3` 실행 파일이 없는 경우
+2. planner script가 누락된 경우
+3. Python planner가 비정상 종료하거나 계약 외 출력을 반환한 경우
+
+반대로 `invalid_dependency_graph`, `circular_dependency`, `invalid_input` 같은 계약된 오류는 fallback 하지 않고 그대로 반환합니다.
+
+backend-specific 함수인 `resolve_task_dependency_layers_bash()`와 `resolve_task_dependency_layers_python()`는 내부 비교/회귀 용도입니다. 운영 코드에서 새 direct caller를 추가하면 validate가 실패합니다.
+
 ## 의존성 규칙
 
 1. **같은 Wave**: 독립적이어야 함 (의존성 없음)

@@ -31,7 +31,7 @@ mkdir -p "$LOG_DIR" "$BACKUP_DIR" "$STATE_DIR"
 TOOL_NAME=$(json_query "$PAYLOAD" '.tool_name // .tool // ""')
 
 case "$TOOL_NAME" in
-  Bash|bash)
+  Bash | bash)
     # 위험한 명령어 차단 (강화된 패턴)
     COMMAND=$(json_query "$PAYLOAD" '.tool_input.command // .input.command // ""')
 
@@ -166,7 +166,7 @@ case "$TOOL_NAME" in
       done
     fi
     ;;
-  Write|Edit|write|edit)
+  Write | Edit | write | edit)
     # 파일 경로 추출
     FILE_PATH=$(json_query "$PAYLOAD" '.tool_input.file_path // .tool_input.path // .input.file_path // .input.path // ""')
 
@@ -204,7 +204,7 @@ case "$TOOL_NAME" in
     # 편집 전 백업
     if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
       BACKUP_NAME=$(echo "$FILE_PATH" | tr '/' '_')
-      cp "$FILE_PATH" "${BACKUP_DIR}/${BACKUP_NAME}.$(date +%s).bak" 2>/dev/null || true
+      cp "$FILE_PATH" "${BACKUP_DIR}/${BACKUP_NAME}.$(date +%s).bak" 2> /dev/null || true
     fi
 
     # docs/specs/<slug>/... 편집은 현재 feature context를 갱신
@@ -214,9 +214,9 @@ case "$TOOL_NAME" in
         FEATURE_PATH="${PROJECT_ROOT}/${FEATURE_PATH}"
       fi
 
-      INFERRED_FEATURE=$(infer_feature_from_path "$FEATURE_PATH" 2>/dev/null || true)
+      INFERRED_FEATURE=$(infer_feature_from_path "$FEATURE_PATH" 2> /dev/null || true)
       if [ -n "$INFERRED_FEATURE" ]; then
-        set_current_feature "$PROJECT_ROOT" "$INFERRED_FEATURE" >/dev/null 2>&1 || true
+        set_current_feature "$PROJECT_ROOT" "$INFERRED_FEATURE" > /dev/null 2>&1 || true
       fi
     fi
 

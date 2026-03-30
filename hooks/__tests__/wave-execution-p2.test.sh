@@ -134,6 +134,56 @@ test_topological_sort_diamond() {
   teardown
 }
 
+test_topological_sort_reorders_out_of_order_chain() {
+  setup
+
+  local tasks_json='[
+    {"id": "task3", "dependencies": ["task2"]},
+    {"id": "task1", "dependencies": []},
+    {"id": "task2", "dependencies": ["task1"]}
+  ]'
+
+  local result
+  result=$(topological_sort "$tasks_json")
+
+  local task1_idx task2_idx task3_idx
+  task1_idx=$(echo "$result" | jq 'index("task1")')
+  task2_idx=$(echo "$result" | jq 'index("task2")')
+  task3_idx=$(echo "$result" | jq 'index("task3")')
+
+  if [[ "$task1_idx" -lt "$task2_idx" ]] && [[ "$task2_idx" -lt "$task3_idx" ]]; then
+    pass "test_topological_sort_reorders_out_of_order_chain ($task1_idx,$task2_idx,$task3_idx)"
+  else
+    fail "test_topological_sort_reorders_out_of_order_chain (unexpected order: $result)"
+  fi
+
+  teardown
+}
+
+test_topological_sort_cycle_error() {
+  setup
+
+  local tasks_json='[
+    {"id": "A", "dependencies": ["B"]},
+    {"id": "B", "dependencies": ["A"]}
+  ]'
+
+  local result=""
+  if result=$(topological_sort "$tasks_json" 2>/dev/null); then
+    fail "test_topological_sort_cycle_error (expected failure)"
+  else
+    local error_type
+    error_type=$(echo "$result" | jq -r '.error // empty' 2>/dev/null)
+    if [[ "$error_type" == "circular_dependency" ]]; then
+      pass "test_topological_sort_cycle_error"
+    else
+      fail "test_topological_sort_cycle_error (error=$error_type)"
+    fi
+  fi
+
+  teardown
+}
+
 test_group_tasks_into_waves_single() {
   setup
 
@@ -247,6 +297,34 @@ test_group_tasks_into_waves_mixed() {
   teardown
 }
 
+test_group_tasks_into_waves_out_of_order_mixed() {
+  setup
+
+  local tasks_json='[
+    {"id": "D", "dependencies": ["C"]},
+    {"id": "C", "dependencies": ["A", "B"]},
+    {"id": "A", "dependencies": []},
+    {"id": "B", "dependencies": []}
+  ]'
+
+  local result
+  result=$(group_tasks_into_waves "$tasks_json")
+
+  local wave_count wave1_count wave2_count wave3_count
+  wave_count=$(echo "$result" | jq 'length')
+  wave1_count=$(echo "$result" | jq '.[0] | length')
+  wave2_count=$(echo "$result" | jq '.[1] | length')
+  wave3_count=$(echo "$result" | jq '.[2] | length')
+
+  if [[ "$wave_count" -eq 3 ]] && [[ "$wave1_count" -eq 2 ]] && [[ "$wave2_count" -eq 1 ]] && [[ "$wave3_count" -eq 1 ]]; then
+    pass "test_group_tasks_into_waves_out_of_order_mixed"
+  else
+    fail "test_group_tasks_into_waves_out_of_order_mixed (waves=$wave_count counts=$wave1_count,$wave2_count,$wave3_count)"
+  fi
+
+  teardown
+}
+
 test_detect_circular_dependencies_none() {
   setup
 
@@ -350,6 +428,39 @@ test_execute_wave_empty() {
   teardown
 }
 
+test_execute_wave_dependency_error() {
+  setup
+
+  local task_a="${TEST_DIR}/task-a.md"
+  local task_b="${TEST_DIR}/task-b.md"
+  echo "# Task A" > "$task_a"
+  echo "# Task B" > "$task_b"
+
+  local tasks_json
+  tasks_json=$(jq -n \
+    --arg a "$task_a" \
+    --arg b "$task_b" \
+    '[
+      {id: "A", file: $a, dependencies: ["B"]},
+      {id: "B", file: $b, dependencies: ["A"]}
+    ]')
+
+  local result
+  result=$(execute_wave 1 "$tasks_json" "$TEST_DIR" "false")
+
+  local status error_type
+  status=$(echo "$result" | jq -r '.status // empty')
+  error_type=$(echo "$result" | jq -r '.error.error // empty')
+
+  if [[ "$status" == "dependency_error" ]] && [[ "$error_type" == "circular_dependency" ]]; then
+    pass "test_execute_wave_dependency_error"
+  else
+    fail "test_execute_wave_dependency_error (status=$status error=$error_type)"
+  fi
+
+  teardown
+}
+
 # ============================================================================
 # 메인 실행
 # ============================================================================
@@ -371,15 +482,19 @@ main() {
   test_topological_sort_no_deps
   test_topological_sort_with_deps
   test_topological_sort_diamond
+  test_topological_sort_reorders_out_of_order_chain
+  test_topological_sort_cycle_error
   test_group_tasks_into_waves_single
   test_group_tasks_into_waves_sequential
   test_group_tasks_into_waves_parallel
   test_group_tasks_into_waves_mixed
+  test_group_tasks_into_waves_out_of_order_mixed
   test_detect_circular_dependencies_none
   test_detect_circular_dependencies_simple
   test_check_dependencies_met
   test_check_dependencies_met_missing
   test_execute_wave_empty
+  test_execute_wave_dependency_error
 
   # 결과 요약
   echo ""

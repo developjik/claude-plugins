@@ -1,0 +1,20 @@
+{
+  "ok": false,
+  "error": "circular_dependency",
+  "order": [],
+  "waves": [],
+  "unresolved": [
+    {
+      "id": "task-a",
+      "dependencies": ["task-c"]
+    },
+    {
+      "id": "task-b",
+      "dependencies": ["task-a"]
+    },
+    {
+      "id": "task-c",
+      "dependencies": ["task-b"]
+    }
+  ]
+}
