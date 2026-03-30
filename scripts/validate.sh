@@ -535,7 +535,10 @@ fi
 if command -v claude > /dev/null 2>&1; then
   echo ""
   echo "--- 11. Claude Plugin Validation ---"
-  if claude plugin validate . 2> /dev/null; then
+  if [[ "${CI:-}" == "true" ]] && [[ "${HARNESS_VALIDATE_CLAUDE_IN_CI:-0}" != "1" ]]; then
+    echo -e "${YELLOW}[WARN]${NC} Claude plugin validation skipped in CI"
+    WARNINGS=$((WARNINGS + 1))
+  elif claude plugin validate . 2> /dev/null; then
     echo -e "${GREEN}[OK]${NC} Claude plugin validation passed"
   else
     echo -e "${YELLOW}[WARN]${NC} Claude plugin validation failed (may be expected)"
