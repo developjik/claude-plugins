@@ -24,7 +24,7 @@
 
 ### 현재 아키텍처
 - **Agent 시스템**: 6개 전문 에이전트 (strategist, architect, engineer, guardian, librarian, debugger)
-- **Skill 시스템**: 9개 실행 스킬 (plan, design, implement, check, wrapup, harness, debug, fullrun, grill-me)
+- **Skill 시스템**: 13개 실행 스킬 (clarify, plan, design, implement, check, wrapup, harness, debug, fullrun, quick, grill-me, delegate, recover)
 - **Hook 시스템**: 6개 이벤트 훅 (SessionStart, PreToolUse, PostToolUse, SubagentStart, SubagentStop, SessionEnd)
 - **상태 관리**: `.harness/state/`에 현재 상태 저장
 

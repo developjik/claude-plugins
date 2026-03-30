@@ -28,14 +28,14 @@ TOOL_NAME=$(json_query "$PAYLOAD" '.tool_name // .tool // ""')
 increment_tool_call_count "$PROJECT_ROOT"
 
 case "$TOOL_NAME" in
-  Write|Edit|write|edit)
+  Write | Edit | write | edit)
     # 파일 변경 추적
     FILE_PATH=$(json_query "$PAYLOAD" '.tool_input.file_path // .tool_input.path // .input.file_path // .input.path // ""')
     if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
       HASH=""
-      if command -v md5sum &>/dev/null; then
+      if command -v md5sum &> /dev/null; then
         HASH=$(md5sum "$FILE_PATH" | cut -d' ' -f1)
-      elif command -v md5 &>/dev/null; then
+      elif command -v md5 &> /dev/null; then
         HASH=$(md5 -q "$FILE_PATH")
       fi
       echo "[$TIMESTAMP] CHANGED $FILE_PATH $HASH" >> "${STATE_DIR}/changes.txt"
@@ -47,15 +47,15 @@ case "$TOOL_NAME" in
         FEATURE_PATH="${PROJECT_ROOT}/${FEATURE_PATH}"
       fi
 
-      INFERRED_FEATURE=$(infer_feature_from_path "$FEATURE_PATH" 2>/dev/null || true)
+      INFERRED_FEATURE=$(infer_feature_from_path "$FEATURE_PATH" 2> /dev/null || true)
       if [ -n "$INFERRED_FEATURE" ]; then
-        set_current_feature "$PROJECT_ROOT" "$INFERRED_FEATURE" >/dev/null 2>&1 || true
+        set_current_feature "$PROJECT_ROOT" "$INFERRED_FEATURE" > /dev/null 2>&1 || true
       fi
     fi
 
-    sync_runtime_cache "$PROJECT_ROOT" >/dev/null 2>&1 || true
+    sync_runtime_cache "$PROJECT_ROOT" > /dev/null 2>&1 || true
     ;;
-  Bash|bash)
+  Bash | bash)
     # 실행 로깅
     echo "[$TIMESTAMP] BASH_EXECUTED" >> "${LOG_DIR}/session.log"
     ;;

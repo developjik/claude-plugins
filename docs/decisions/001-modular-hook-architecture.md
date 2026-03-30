@@ -60,5 +60,5 @@ hooks/lib/
 
 ## 참조
 
-- [ARCHITECTURE.md](../ARCHITECTURE.md)
-- [HOOK-WRITING-GUIDE.md](../HOOK-WRITING-GUIDE.md)
+- [architecture.md](../reference/architecture.md)
+- [hook-writing.md](../guides/hook-writing.md)

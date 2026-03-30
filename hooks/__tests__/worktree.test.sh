@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # worktree.test.sh — worktree.sh 테스트
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"

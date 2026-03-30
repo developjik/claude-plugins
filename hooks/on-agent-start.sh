@@ -31,7 +31,7 @@ PREVIOUS_PHASE=$(get_runtime_phase "$PROJECT_ROOT")
 echo "$AGENT_NAME" > "$(harness_current_agent_file "$PROJECT_ROOT")"
 
 # 현재 시간 기록 (결과 요약용)
-date +%s > "$(harness_phase_start_file "$PROJECT_ROOT")" 2>/dev/null || true
+date +%s > "$(harness_phase_start_file "$PROJECT_ROOT")" 2> /dev/null || true
 
 echo "[$TIMESTAMP] AGENT_START agent=$AGENT_NAME phase=$PHASE previous=$PREVIOUS_PHASE" >> "${LOG_DIR}/session.log"
 
@@ -45,14 +45,14 @@ if [ -n "$CURRENT_FEATURE" ] && [ "$PHASE" != "unknown" ]; then
   SKILL_NAME=$(infer_skill_from_agent "$AGENT_NAME")
 
   # 스킬 체인 검증 (strict_mode=false: 경고만)
-  CHAIN_RESULT=$(check_and_validate_chain "$SKILL_NAME" "$CURRENT_FEATURE" "false" 2>/dev/null || echo "")
+  CHAIN_RESULT=$(check_and_validate_chain "$SKILL_NAME" "$CURRENT_FEATURE" "false" 2> /dev/null || echo "")
 
   if [ -n "$CHAIN_RESULT" ]; then
     # 검증 결과 로깅
     echo "[$TIMESTAMP] SKILL_CHAIN_CHECK skill=$SKILL_NAME feature=$CURRENT_FEATURE" >> "${LOG_DIR}/skill-chain.log"
 
     # JSON 응답인 경우 파싱
-    if echo "$CHAIN_RESULT" | jq -e . >/dev/null 2>&1; then
+    if echo "$CHAIN_RESULT" | jq -e . > /dev/null 2>&1; then
       DECISION=$(echo "$CHAIN_RESULT" | jq -r '.decision // "allow"')
       WARNING=$(echo "$CHAIN_RESULT" | jq -r '.warning // ""')
 
@@ -112,5 +112,5 @@ case "$APPROVAL_NEEDED" in
 esac
 
 if is_managed_pdca_phase "$PHASE"; then
-  record_phase_transition "$PROJECT_ROOT" "$PHASE" "$AGENT_NAME" "agent_start" >/dev/null 2>&1 || true
+  record_phase_transition "$PROJECT_ROOT" "$PHASE" "$AGENT_NAME" "agent_start" > /dev/null 2>&1 || true
 fi

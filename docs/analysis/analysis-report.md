@@ -250,7 +250,7 @@ Pi SDK 기반 독립 CLI. 완전 자율 실행 지원.
 | **gstack** | 28 | Sprint process, power tools |
 | **GSD v1** | 30+ | Wave execution, quick mode |
 | **GSD v2** | 19 extensions | Auto mode, remote questions |
-| **harness-engineering** | 10 | PDCA 5단계, grill-me |
+| **harness-engineering** | 13 | PDCA 5단계, quick, delegate, recover 포함 |
 
 ---
 

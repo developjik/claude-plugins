@@ -28,8 +28,8 @@ echo "[$TIMESTAMP] SESSION_START" >> "$SESSION_LOG"
 echo "[$TIMESTAMP] PROJECT_ROOT=$PROJECT_ROOT" >> "$SESSION_LOG"
 
 # Git 상태 감지
-if command -v git &>/dev/null && git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
-  BRANCH=$(git -C "$PROJECT_ROOT" branch --show-current 2>/dev/null || echo "detached")
+if command -v git &> /dev/null && git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree &> /dev/null 2>&1; then
+  BRANCH=$(git -C "$PROJECT_ROOT" branch --show-current 2> /dev/null || echo "detached")
   echo "[$TIMESTAMP] GIT_BRANCH=$BRANCH" >> "$SESSION_LOG"
 
   EXCLUDE_ENTRY=$(ensure_runtime_git_exclude "$PROJECT_ROOT")
@@ -41,7 +41,7 @@ fi
 # PDCA 상태 캐시 초기화
 ensure_harness_runtime_subdirs "$PROJECT_ROOT"
 if [[ -f "$(harness_engine_dir_from_root "$PROJECT_ROOT")/state.json" ]]; then
-  safe_sync_runtime_cache "$PROJECT_ROOT" >/dev/null 2>&1 || true
+  safe_sync_runtime_cache "$PROJECT_ROOT" > /dev/null 2>&1 || true
 else
   echo "idle" > "$(harness_phase_file "$PROJECT_ROOT")"
   : > "$(harness_current_feature_file "$PROJECT_ROOT")"
@@ -62,9 +62,11 @@ echo "$CURRENT_LEVEL" > "$(harness_current_level_file "$PROJECT_ROOT")"
 TRUST_SCORE=$(get_trust_score "$PROJECT_ROOT")
 RECOMMENDED_LEVEL=$(get_recommended_level "$PROJECT_ROOT")
 
-echo "[$TIMESTAMP] AUTOMATION_LEVEL=$CURRENT_LEVEL" >> "$SESSION_LOG"
-echo "[$TIMESTAMP] TRUST_SCORE=$TRUST_SCORE" >> "$SESSION_LOG"
-echo "[$TIMESTAMP] RECOMMENDED_LEVEL=$RECOMMENDED_LEVEL" >> "$SESSION_LOG"
+{
+  echo "[$TIMESTAMP] AUTOMATION_LEVEL=$CURRENT_LEVEL"
+  echo "[$TIMESTAMP] TRUST_SCORE=$TRUST_SCORE"
+  echo "[$TIMESTAMP] RECOMMENDED_LEVEL=$RECOMMENDED_LEVEL"
+} >> "$SESSION_LOG"
 
 # 추천 레벨과 현재 레벨이 다르면 로그에 안내
 if [ "$CURRENT_LEVEL" != "$RECOMMENDED_LEVEL" ]; then

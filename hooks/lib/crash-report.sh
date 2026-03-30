@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# crash-report.sh — crash-recovery analysis and reporting helpers
+
+set -euo pipefail
+
+crash_recovery_dir() {
+  local project_root="${1:-}"
+  local recovery_dir_name="${RECOVERY_DIR:-.harness/recovery}"
+  echo "${project_root}/${recovery_dir_name}"
+}
+
+crash_forensics_dir() {
+  local project_root="${1:-}"
+  local forensics_dir_name="${FORENSICS_DIR:-.harness/forensics}"
+  echo "${project_root}/${forensics_dir_name}"
+}
+
+collect_crash_snapshots() {
+  local project_root="${1:-}"
+  local snapshots_dir
+  snapshots_dir=$(crash_recovery_snapshots_dir "$project_root")
+
+  if [[ ! -d "$snapshots_dir" ]]; then
+    echo '[]'
+    return 0
+  fi
+
+  find "$snapshots_dir" -maxdepth 1 -type f -name '*.json' 2> /dev/null | head -5 | while IFS= read -r f; do
+    jq -c '{id: .id, phase: .phase, timestamp: .timestamp}' "$f" 2> /dev/null || echo '{}'
+  done | jq -s '.' 2> /dev/null || echo '[]'
+}
+
+collect_recent_transitions() {
+  local project_root="${1:-}"
+  local transitions_file
+  transitions_file=$(crash_recovery_transitions_file "$project_root")
+
+  if [[ ! -f "$transitions_file" ]]; then
+    echo '[]'
+    return 0
+  fi
+
+  tail -20 "$transitions_file" | jq -s '.' 2> /dev/null || echo '[]'
+}
+
+# Analyze crash
+# Usage: analyze_crash <project_root> [crash_id]
+analyze_crash() {
+  local project_root="${1:-}"
+  local crash_id="${2:-}"
+  local recovery_dir forensics_dir
+
+  recovery_dir=$(crash_recovery_dir "$project_root")
+  forensics_dir=$(crash_forensics_dir "$project_root")
+  mkdir -p "$recovery_dir" "$forensics_dir"
+
+  local timestamp analysis_id
+  timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+  if [[ -n "$crash_id" ]]; then
+    analysis_id="$crash_id"
+  else
+    analysis_id="crash_$(date +%s)"
+  fi
+
+  local current_state='{}'
+  local state_file
+  state_file=$(crash_recovery_state_file "$project_root")
+  if [[ -f "$state_file" ]]; then
+    current_state=$(cat "$state_file")
+  fi
+
+  local recent_transitions stuck_status snapshots diagnosis recovery_options analysis
+  recent_transitions=$(collect_recent_transitions "$project_root")
+  stuck_status=$(detect_stuck_state "$project_root")
+  snapshots=$(collect_crash_snapshots "$project_root")
+  diagnosis=$(diagnose_issue "$project_root" "$stuck_status" "$current_state")
+  recovery_options=$(generate_recovery_options "$project_root" "$stuck_status" "$diagnosis")
+
+  analysis=$(jq -c -n \
+    --arg id "$analysis_id" \
+    --arg ts "$timestamp" \
+    --argjson stuck "$stuck_status" \
+    --argjson state "$current_state" \
+    --argjson transitions "$recent_transitions" \
+    --argjson snapshots "$snapshots" \
+    --argjson diagnosis "$diagnosis" \
+    --argjson options "$recovery_options" \
+    '{
+      id: $id,
+      timestamp: $ts,
+      stuck_status: $stuck,
+      current_state: $state,
+      recent_transitions: $transitions,
+      available_snapshots: $snapshots,
+      diagnosis: $diagnosis,
+      recovery_options: $options
+    }')
+
+  echo "$analysis" > "${forensics_dir}/analysis_${analysis_id}.json"
+  echo "$analysis"
+}
+
+# Generate forensics report
+# Usage: generate_forensics_report <project_root> [analysis_id]
+generate_forensics_report() {
+  local project_root="${1:-}"
+  local analysis_id="${2:-}"
+  local forensics_dir
+
+  forensics_dir=$(crash_forensics_dir "$project_root")
+  mkdir -p "$forensics_dir"
+
+  local timestamp
+  timestamp=$(date +%Y%m%d_%H%M%S)
+
+  local report_file="${forensics_dir}/forensics_report_${timestamp}.md"
+  local analysis
+  if [[ -n "$analysis_id" ]] && [[ -f "${forensics_dir}/analysis_${analysis_id}.json" ]]; then
+    analysis=$(cat "${forensics_dir}/analysis_${analysis_id}.json")
+  else
+    analysis=$(analyze_crash "$project_root" "$analysis_id")
+  fi
+
+  {
+    echo "# Forensics Report"
+    echo ""
+    echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+    echo "**Analysis ID:** $(echo "$analysis" | jq -r '.id')"
+    echo ""
+
+    echo "## Stuck Status"
+    echo ""
+    local stuck stuck_reason phase
+    stuck=$(echo "$analysis" | jq -r '.stuck_status.stuck')
+    stuck_reason=$(echo "$analysis" | jq -r '.stuck_status.reason')
+    phase=$(echo "$analysis" | jq -r '.current_state.phase')
+
+    if [[ "$stuck" == "true" ]]; then
+      echo "- **Status:** STUCK"
+      echo "- **Reason:** $stuck_reason"
+    else
+      echo "- **Status:** Not stuck"
+    fi
+    echo "- **Current Phase:** $phase"
+    echo ""
+
+    echo "## Diagnosis"
+    echo ""
+    local issue severity root_cause
+    issue=$(echo "$analysis" | jq -r '.diagnosis.issue')
+    severity=$(echo "$analysis" | jq -r '.diagnosis.severity')
+    root_cause=$(echo "$analysis" | jq -r '.diagnosis.root_cause')
+
+    echo "- **Issue:** $issue"
+    echo "- **Severity:** $severity"
+    echo "- **Root Cause:** $root_cause"
+    echo ""
+
+    echo "## Recovery Options"
+    echo ""
+    echo "| Option | Action | Risk |"
+    echo "|--------|--------|------|"
+    echo "$analysis" | jq -r '.recovery_options[] | "| \(.id) | \(.action) | \(.risk) |"'
+    echo ""
+
+    echo "---"
+    echo "*Auto-generated by crash-recovery.sh*"
+  } > "$report_file"
+
+  echo "$report_file"
+}
+
+# List recovery options
+# Usage: list_recovery_options <project_root>
+list_recovery_options() {
+  local project_root="${1:-}"
+  local analysis
+  analysis=$(analyze_crash "$project_root")
+
+  echo "========================================"
+  echo "Recovery Options"
+  echo "========================================"
+  echo ""
+
+  local stuck stuck_reason phase
+  stuck=$(echo "$analysis" | jq -r '.stuck_status.stuck')
+  stuck_reason=$(echo "$analysis" | jq -r '.stuck_status.reason')
+  phase=$(echo "$analysis" | jq -r '.current_state.phase // "unknown"')
+
+  echo "Current Status:"
+  if [[ "$stuck" == "true" ]]; then
+    echo "  Stuck: $stuck_reason"
+  else
+    echo "  Not stuck"
+  fi
+  echo "  Phase: $phase"
+  echo ""
+
+  echo "Available Options:"
+  echo ""
+
+  local i=1
+  while IFS='|' read -r id action risk desc; do
+    echo "  $i. [$id] $action"
+    echo "     Risk: $risk"
+    echo "     $desc"
+    echo ""
+    i=$((i + 1))
+  done < <(echo "$analysis" | jq -r '.recovery_options[] | "\(.id)|\(.action)|\(.risk)|\(.description)"')
+}

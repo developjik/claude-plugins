@@ -143,6 +143,48 @@ EOF
   teardown
 }
 
+test_detect_test_framework_pytest_requirements_glob() {
+  setup
+
+  cat > "${TEST_DIR}/requirements-dev.txt" << 'EOF'
+pytest>=8.0.0
+requests>=2.0.0
+EOF
+
+  local result
+  result=$(detect_test_framework "$TEST_DIR")
+
+  if assert_equals "pytest" "$result" "Should detect pytest from requirements-dev.txt"; then
+    pass "test_detect_test_framework_pytest_requirements_glob"
+  else
+    fail "test_detect_test_framework_pytest_requirements_glob"
+  fi
+
+  teardown
+}
+
+test_detect_test_framework_pyproject_without_pytest() {
+  setup
+
+  cat > "${TEST_DIR}/pyproject.toml" << 'EOF'
+[project]
+name = "plain-python-project"
+version = "0.1.0"
+dependencies = ["requests>=2.0.0"]
+EOF
+
+  local result
+  result=$(detect_test_framework "$TEST_DIR")
+
+  if assert_equals "none" "$result" "Should not detect pytest from pyproject.toml alone"; then
+    pass "test_detect_test_framework_pyproject_without_pytest"
+  else
+    fail "test_detect_test_framework_pyproject_without_pytest"
+  fi
+
+  teardown
+}
+
 test_detect_test_framework_go() {
   setup
 
@@ -191,11 +233,35 @@ EOF
   local cmd
   cmd=$(get_test_command "jest" "$TEST_DIR" "")
 
-  if assert_contains "npm test" "$cmd" "Should contain npm test command" && \
+  if assert_contains "npx jest" "$cmd" "Should contain npx jest command" && \
      assert_contains "--json" "$cmd" "Should contain json flag"; then
     pass "test_get_test_command_jest"
   else
     fail "test_get_test_command_jest"
+  fi
+
+  teardown
+}
+
+test_get_test_command_jest_pnpm() {
+  setup
+
+  cat > "${TEST_DIR}/package.json" << 'EOF'
+{
+  "packageManager": "pnpm@9.0.0",
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}
+EOF
+
+  local cmd
+  cmd=$(get_test_command "jest" "$TEST_DIR" "")
+
+  if assert_contains "pnpm exec jest" "$cmd" "Should use pnpm exec for jest"; then
+    pass "test_get_test_command_jest_pnpm"
+  else
+    fail "test_get_test_command_jest_pnpm"
   fi
 
   teardown
@@ -212,6 +278,43 @@ test_get_test_command_with_filter() {
     pass "test_get_test_command_with_filter"
   else
     fail "test_get_test_command_with_filter"
+  fi
+
+  teardown
+}
+
+test_get_test_command_vitest_yarn() {
+  setup
+
+  touch "${TEST_DIR}/yarn.lock"
+
+  local cmd
+  cmd=$(get_test_command "vitest" "$TEST_DIR" "user-auth")
+
+  if assert_contains "yarn vitest run" "$cmd" "Should use yarn for vitest" && \
+     assert_contains "-t 'user-auth'" "$cmd" "Should use testNamePattern short flag" && \
+     assert_contains "--outputFile=test-results.json" "$cmd" "Should write JSON output to file"; then
+    pass "test_get_test_command_vitest_yarn"
+  else
+    fail "test_get_test_command_vitest_yarn"
+  fi
+
+  teardown
+}
+
+test_get_test_command_mocha_bun() {
+  setup
+
+  touch "${TEST_DIR}/bun.lockb"
+
+  local cmd
+  cmd=$(get_test_command "mocha" "$TEST_DIR" "auth")
+
+  if assert_contains "bunx mocha" "$cmd" "Should use bunx for mocha" && \
+     assert_contains "--grep='auth'" "$cmd" "Should keep mocha grep filter"; then
+    pass "test_get_test_command_mocha_bun"
+  else
+    fail "test_get_test_command_mocha_bun"
   fi
 
   teardown
@@ -253,7 +356,43 @@ EOF
   teardown
 }
 
+test_parse_vitest_output_jest_compatible_json() {
+  setup
+
+  cat > "${TEST_DIR}/test-results.json" << 'EOF'
+{
+  "numPassedTests": 4,
+  "numFailedTests": 1,
+  "numPendingTests": 2,
+  "numTodoTests": 1,
+  "numTotalTests": 8
+}
+EOF
+
+  local result
+  result=$(parse_vitest_output "$TEST_DIR" "0")
+
+  local passed failed skipped total
+  passed=$(echo "$result" | jq -r '.passed')
+  failed=$(echo "$result" | jq -r '.failed')
+  skipped=$(echo "$result" | jq -r '.skipped')
+  total=$(echo "$result" | jq -r '.total')
+
+  if assert_equals "4" "$passed" "Passed count should be 4" && \
+     assert_equals "1" "$failed" "Failed count should be 1" && \
+     assert_equals "3" "$skipped" "Skipped count should include pending and todo" && \
+     assert_equals "8" "$total" "Total count should be 8"; then
+    pass "test_parse_vitest_output_jest_compatible_json"
+  else
+    fail "test_parse_vitest_output_jest_compatible_json"
+  fi
+
+  teardown
+}
+
 test_check_test_success_rate_passing() {
+  setup
+
   local results='{"passed": 90, "failed": 10, "total": 100}'
 
   if check_test_success_rate "$results" "0.9" | grep -q "true"; then
@@ -261,9 +400,13 @@ test_check_test_success_rate_passing() {
   else
     fail "test_check_test_success_rate_passing"
   fi
+
+  teardown
 }
 
 test_check_test_success_rate_failing() {
+  setup
+
   local results='{"passed": 80, "failed": 20}'
 
   # 함수가 false를 출력하는지 확인 (return 1이어도 출력 확인)
@@ -275,9 +418,13 @@ test_check_test_success_rate_failing() {
   else
     fail "test_check_test_success_rate_failing"
   fi
+
+  teardown
 }
 
 test_summarize_test_results() {
+  setup
+
   local results='{
     "framework": "jest",
     "passed": 10,
@@ -296,6 +443,8 @@ test_summarize_test_results() {
   else
     fail "test_summarize_test_results"
   fi
+
+  teardown
 }
 
 # ============================================================================
@@ -311,11 +460,17 @@ main() {
   # 테스트 실행
   test_detect_test_framework_jest
   test_detect_test_framework_pytest
+  test_detect_test_framework_pytest_requirements_glob
+  test_detect_test_framework_pyproject_without_pytest
   test_detect_test_framework_go
   test_detect_test_framework_none
   test_get_test_command_jest
+  test_get_test_command_jest_pnpm
   test_get_test_command_with_filter
+  test_get_test_command_vitest_yarn
+  test_get_test_command_mocha_bun
   test_parse_jest_output
+  test_parse_vitest_output_jest_compatible_json
   test_check_test_success_rate_passing
   test_check_test_success_rate_failing
   test_summarize_test_results

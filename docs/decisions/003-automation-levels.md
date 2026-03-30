@@ -53,4 +53,4 @@ automation:
 ## 참조
 
 - [automation-level.sh](../../hooks/lib/automation-level.sh)
-- [ARTIFACT-CONVENTION.md](../ARTIFACT-CONVENTION.md)
+- [artifact-convention.md](../reference/artifact-convention.md)

@@ -1,0 +1,18 @@
+[
+  {
+    "id": "lint",
+    "dependencies": []
+  },
+  {
+    "id": "unit-test",
+    "dependencies": ["lint"]
+  },
+  {
+    "id": "package",
+    "dependencies": ["lint"]
+  },
+  {
+    "id": "deploy",
+    "dependencies": ["unit-test", "package"]
+  }
+]

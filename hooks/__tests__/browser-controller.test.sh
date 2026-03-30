@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # browser-controller.test.sh — 브라우저 컨트롤러 테스트
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"

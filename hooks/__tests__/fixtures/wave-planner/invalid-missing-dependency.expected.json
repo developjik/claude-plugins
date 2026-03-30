@@ -1,0 +1,11 @@
+{
+  "ok": false,
+  "error": "invalid_dependency_graph",
+  "duplicate_ids": [],
+  "missing_dependencies": [
+    {
+      "task_id": "task-a",
+      "dependency": "missing-task"
+    }
+  ]
+}

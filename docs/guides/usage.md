@@ -504,6 +504,6 @@ automation:
 
 ## 참조
 
-- [아키텍처 문서](ARCHITECTURE.md)
-- [산출물 규약](ARTIFACT-CONVENTION.md)
-- [스킬 작성 가이드](SKILL-WRITING-GUIDE.md)
+- [아키텍처 문서](../reference/architecture.md)
+- [산출물 규약](../reference/artifact-convention.md)
+- [스킬 작성 가이드](skill-writing.md)

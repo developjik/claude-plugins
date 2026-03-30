@@ -387,6 +387,49 @@ test_detect_anomalies() {
   teardown
 }
 
+test_rank_skills() {
+  setup
+
+  for i in {1..10}; do
+    record_skill_execution "$TEST_DIR" "good-skill" "success" "900" > /dev/null
+    record_skill_execution "$TEST_DIR" "bad-skill" "failure" "12000" "error" > /dev/null
+  done
+
+  local ranking
+  ranking=$(rank_skills "$TEST_DIR" "30")
+
+  if assert_json_value "$ranking" 'length' "2" "Should rank 2 skills" && \
+     assert_json_value "$ranking" '.[0].skill' "good-skill" "Best skill should rank first"; then
+    pass "test_rank_skills"
+  else
+    fail "test_rank_skills"
+  fi
+
+  teardown
+}
+
+test_generate_recommendations() {
+  setup
+
+  for i in {1..5}; do
+    record_skill_execution "$TEST_DIR" "bad-skill" "failure" "5000" "error" > /dev/null
+  done
+  : > "${TEST_DIR}/${METRICS_DIR}/unused-skill.jsonl"
+
+  local stats recommendations
+  stats=$(get_all_skill_statistics "$TEST_DIR" "30")
+  recommendations=$(generate_recommendations "$stats")
+
+  if echo "$recommendations" | grep -q "bad-skill" && \
+     echo "$recommendations" | grep -q "unused-skill"; then
+    pass "test_generate_recommendations"
+  else
+    fail "test_generate_recommendations"
+  fi
+
+  teardown
+}
+
 test_generate_weekly_report() {
   setup
 
@@ -446,6 +489,8 @@ main() {
   test_export_metrics_json
   test_export_metrics_csv
   test_detect_anomalies
+  test_rank_skills
+  test_generate_recommendations
   test_generate_weekly_report
 
   # 결과 요약

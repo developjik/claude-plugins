@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "order": ["generate-docs", "lint", "release-notes", "test", "deploy"],
+  "waves": [
+    ["generate-docs", "lint"],
+    ["release-notes", "test"],
+    ["deploy"]
+  ],
+  "validation": {
+    "valid": true,
+    "duplicate_ids": [],
+    "missing_dependencies": []
+  },
+  "unresolved": []
+}

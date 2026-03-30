@@ -1,0 +1,10 @@
+[
+  {
+    "id": "task-a",
+    "dependencies": ["missing-task"]
+  },
+  {
+    "id": "task-b",
+    "dependencies": []
+  }
+]

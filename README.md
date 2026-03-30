@@ -316,17 +316,41 @@ harness-engineering/
 │   │   ├── json-utils.sh
 │   │   ├── logging.sh
 │   │   ├── validation.sh
-│   │   ├── test-runner.sh          # P0-1: 테스트 실행
+│   │   ├── test-detection.sh       # P0-1: 프레임워크 감지/명령 합성
+│   │   ├── test-results.sh         # P0-1: 결과 파싱/요약
+│   │   ├── test-runner.sh          # P0-1: 테스트 실행 facade
 │   │   ├── verification-classes.sh # P0-1: 검증 클래스
 │   │   ├── subagent-spawner.sh     # P0-2: 서브에이전트
 │   │   ├── state-machine.sh        # P0-3: 상태 머신
+│   │   ├── state-store.sh          # P0-3: 상태 저장소
+│   │   ├── phase-cache.sh          # P0-3: 런타임 캐시 동기화
+│   │   ├── snapshot-store.sh       # P0-3: 스냅샷 저장소
+│   │   ├── subagent-request.sh     # P0-2: 요청/계약 준비
+│   │   ├── subagent-collect.sh     # P0-2: 결과 수집/집계
+│   │   ├── subagent-finalize.sh    # P0-2: 완료/정리 처리
+│   │   ├── lsp-diagnostics.sh      # P1-5: 진단 파서/리포트
+│   │   ├── lsp-symbols.sh          # P1-5: 심볼/위치 포맷터
+│   │   ├── review-evidence.sh      # P1-1: FR/file/API evidence matcher
 │   │   ├── review-engine.sh        # P1-1: 2단계 리뷰
-│   │   ├── skill-evaluation.sh     # P1-2: 스킬 평가
-│   │   ├── crash-recovery.sh       # P1-3: 크래시 복구
-│   │   ├── browser-testing.sh      # P1-4: 브라우저 테스트
+│   │   ├── skill-metrics.sh        # P1-2: 메트릭 기록/집계/정리
+│   │   ├── skill-scoring.sh        # P1-2: 점수/랭킹/이상 탐지
+│   │   ├── skill-report.sh         # P1-2: 대시보드/주간 리포트
+│   │   ├── skill-evaluation.sh     # P1-2: 스킬 평가 facade
+│   │   ├── crash-detection.sh      # P1-3: stuck/loop 판정
+│   │   ├── crash-report.sh         # P1-3: 포렌식 분석/리포트
+│   │   ├── crash-recovery.sh       # P1-3: 복구 facade
+│   │   ├── browser-state.sh        # P1-5: 브라우저 세션 상태 저장
+│   │   ├── browser-session.sh      # P1-5: Playwright 세션 연결/해제
+│   │   ├── browser-actions.sh      # P1-5: 페이지 액션 브리지
+│   │   ├── browser-controller.sh   # P1-5: 브라우저 facade/CLI
+│   │   ├── browser-test-runner.sh  # P1-4: 프레임워크 감지/실행/파서
+│   │   ├── browser-test-report.sh  # P1-4: 리포트/히스토리/정리
+│   │   ├── browser-testing.sh      # P1-4: 브라우저 테스트 facade
 │   │   ├── hash-anchored-edit.sh   # P2-1: 해시 앵커 에디트
-│   │   └── wave-executor.sh        # P2-2: 웨이브 실행
-│   └── __tests__/                  # 훅 테스트 (19 suites / 224 cases)
+│   │   ├── wave-graph.sh           # P2-2: 웨이브 DAG 계산
+│   │   ├── wave-runner.sh          # P2-2: 웨이브 실행 orchestration
+│   │   └── wave-executor.sh        # P2-2: 웨이브 facade
+│   └── __tests__/                  # 훅 테스트 (20 suites / 262 cases)
 ├── scripts/                        # 검증 스크립트
 ├── docs/                           # 문서
 │   ├── README.md
@@ -348,6 +372,7 @@ bash scripts/validate.sh
 # 개별 검증
 claude plugin validate .
 bash -n hooks/*.sh
+bash scripts/lint-shell.sh --check
 
 # 라이브러리 테스트
 ./hooks/__tests__/test-runner.test.sh
@@ -408,6 +433,7 @@ cat .harness/logs/context-rot.jsonl
 
 - [문서 인덱스](docs/README.md) — 전체 문서 맵과 빠른 링크
 - [아키텍처](docs/reference/architecture.md) — PDCA 흐름, 에이전트-스킬 관계, 훅 라이프사이클
+- [런타임 재설계](docs/reference/runtime-redesign.md) — 대형 Bash 모듈 분해와 장기 이전 계획
 - [프로젝트 분석](docs/analysis/project-analysis.md) — 시스템 구조 ASCII 다이어그램
 - [빠른 시작](docs/guides/quickstart.md) — 5분 만에 시작하기
 - [사용 가이드](docs/guides/usage.md) — 명령어, 단계별 사용 흐름

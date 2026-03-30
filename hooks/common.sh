@@ -103,8 +103,8 @@ harness_project_root() {
     root=$(json_query "$payload" '.cwd // .session.cwd // ""')
   fi
 
-  if [ -z "$root" ] && command -v git >/dev/null 2>&1 && git rev-parse --show-toplevel >/dev/null 2>&1; then
-    root=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+  if [ -z "$root" ] && command -v git > /dev/null 2>&1 && git rev-parse --show-toplevel > /dev/null 2>&1; then
+    root=$(git rev-parse --show-toplevel 2> /dev/null || echo "")
   fi
 
   if [ -z "$root" ]; then
@@ -119,7 +119,7 @@ harness_project_root() {
 harness_runtime_dir() {
   local root
   root=$(harness_project_root "${1:-}")
-  if declare -f harness_runtime_dir_from_root >/dev/null 2>&1; then
+  if declare -f harness_runtime_dir_from_root > /dev/null 2>&1; then
     harness_runtime_dir_from_root "$root"
   else
     printf '%s/.harness\n' "$root"
@@ -132,16 +132,16 @@ ensure_runtime_git_exclude() {
   local exclude_path=""
   local pattern=""
 
-  if [ -z "$project_root" ] || ! command -v git >/dev/null 2>&1; then
+  if [ -z "$project_root" ] || ! command -v git > /dev/null 2>&1; then
     return 0
   fi
 
-  if ! git -C "$project_root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if ! git -C "$project_root" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
     return 0
   fi
 
-  git_root=$(git -C "$project_root" rev-parse --show-toplevel 2>/dev/null || echo "")
-  exclude_path=$(git -C "$project_root" rev-parse --git-path info/exclude 2>/dev/null || echo "")
+  git_root=$(git -C "$project_root" rev-parse --show-toplevel 2> /dev/null || echo "")
+  exclude_path=$(git -C "$project_root" rev-parse --git-path info/exclude 2> /dev/null || echo "")
 
   if [ -z "$git_root" ] || [ -z "$exclude_path" ]; then
     return 0

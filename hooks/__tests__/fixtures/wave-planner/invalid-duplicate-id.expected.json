@@ -1,0 +1,6 @@
+{
+  "ok": false,
+  "error": "invalid_dependency_graph",
+  "duplicate_ids": ["task-a"],
+  "missing_dependencies": []
+}

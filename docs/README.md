@@ -7,6 +7,7 @@
 | [Quickstart](guides/quickstart.md) | 5분 내 설정 완료 가이드 |
 | [Usage](guides/usage.md) | 상세 사용법 및 명령어 |
 | [Architecture](reference/architecture.md) | 시스템 아키텍처 개요 |
+| [Runtime Redesign](reference/runtime-redesign.md) | 대형 Bash 모듈 분해 및 장기 런타임 방향 |
 | [Project Analysis](analysis/project-analysis.md) | 현재 구조와 훅/스킬 분석 |
 | [Artifact Convention](reference/artifact-convention.md) | 산출물 저장 규약 |
 
@@ -29,6 +30,7 @@
 기술 레퍼런스 문서
 
 - [architecture.md](reference/architecture.md) - 아키텍처 개요
+- [runtime-redesign.md](reference/runtime-redesign.md) - 런타임 재설계 초안
 - [artifact-convention.md](reference/artifact-convention.md) - 산출물 규약
 - [hybrid-task-format.md](reference/hybrid-task-format.md) - 하이브리드 태스크 포맷
 - [lsp-integration.md](reference/lsp-integration.md) - LSP 통합

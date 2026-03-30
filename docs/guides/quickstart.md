@@ -92,9 +92,9 @@ automation:
 
 ## 📚 다음 단계
 
-- [아키텍처 이해하기](ARCHITECTURE.md)
-- [스킬 작성 가이드](SKILL-WRITING-GUIDE.md)
-- [에이전트 작성 가이드](AGENT-WRITING-GUIDE.md)
+- [아키텍처 이해하기](../reference/architecture.md)
+- [스킬 작성 가이드](skill-writing.md)
+- [에이전트 작성 가이드](agent-writing.md)
 
 ## 💡 팁
 
