@@ -58,19 +58,19 @@ jobs:
         run: |
           if command -v claude >/dev/null 2>&1; then
             python3 - <<'PY'
-import subprocess
+          import subprocess
 
-try:
-    subprocess.run(
-        ["claude", "plugin", "validate", "."],
-        check=True,
-        timeout=60,
-    )
-except subprocess.TimeoutExpired:
-    print("Claude plugin validation timed out after 60s; skipped.")
-except subprocess.CalledProcessError as exc:
-    print(f"Claude plugin validation failed with exit code {exc.returncode}; ignored.")
-PY
+          try:
+              subprocess.run(
+                  ["claude", "plugin", "validate", "."],
+                  check=True,
+                  timeout=60,
+              )
+          except subprocess.TimeoutExpired:
+              print("Claude plugin validation timed out after 60s; skipped.")
+          except subprocess.CalledProcessError as exc:
+              print(f"Claude plugin validation failed with exit code {exc.returncode}; ignored.")
+          PY
           else
             echo "Claude CLI is not available on this runner; skipped direct plugin validation."
           fi
