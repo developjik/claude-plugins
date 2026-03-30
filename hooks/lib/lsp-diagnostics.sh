@@ -90,7 +90,10 @@ lsp_typescript_diagnostics() {
   fi
 
   local result
-  result=$(cd "$project_root" && npx tsc --noEmit --pretty false 2>&1 || true)
+  result=$({
+    cd "$project_root" || exit 1
+    npx tsc --noEmit --pretty false 2>&1
+  } || true)
 
   local diagnostics="[]"
   local line file line_num col message
@@ -118,7 +121,10 @@ lsp_python_diagnostics() {
 
   if command -v mypy > /dev/null 2>&1; then
     local result
-    result=$(cd "$project_root" && mypy --output json "$file_path" 2> /dev/null || true)
+    result=$({
+      cd "$project_root" || exit 1
+      mypy --output json "$file_path" 2> /dev/null
+    } || true)
 
     if [[ -n "$result" ]]; then
       local item severity
@@ -150,7 +156,10 @@ lsp_go_diagnostics() {
 
   if command -v go > /dev/null 2>&1; then
     local result line file line_num col message
-    result=$(cd "$project_root" && go vet ./... 2>&1 || true)
+    result=$({
+      cd "$project_root" || exit 1
+      go vet ./... 2>&1
+    } || true)
 
     while IFS= read -r line; do
       if [[ "$line" =~ ^(.+):([0-9]+):([0-9]+):\ (.+)$ ]]; then
@@ -177,7 +186,10 @@ lsp_rust_diagnostics() {
 
   if command -v cargo > /dev/null 2>&1; then
     local result line message severity spans line_num col span_file
-    result=$(cd "$project_root" && cargo check --message-format=json 2>&1 || true)
+    result=$({
+      cd "$project_root" || exit 1
+      cargo check --message-format=json 2>&1
+    } || true)
 
     while IFS= read -r line; do
       if echo "$line" | jq -e '.reason == "compiler-message"' > /dev/null 2>&1; then
@@ -214,7 +226,10 @@ lsp_collect_project_diagnostics() {
   case "$language" in
     typescript | javascript)
       local result line file line_num col severity_word message severity
-      result=$(cd "$project_root" && npx tsc --noEmit --pretty false 2>&1 || true)
+      result=$({
+        cd "$project_root" || exit 1
+        npx tsc --noEmit --pretty false 2>&1
+      } || true)
 
       while IFS= read -r line; do
         if [[ "$line" =~ ^(.+)\(([0-9]+),([0-9]+)\):\ (error|warning)\ (.+)$ ]]; then

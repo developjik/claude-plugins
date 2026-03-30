@@ -49,18 +49,45 @@ parse_jest_output() {
     return 0
   fi
 
-  jq '{
-    framework: "jest",
-    passed: .numPassedTests // 0,
-    failed: .numFailedTests // 0,
-    skipped: (.numPendingTests // 0) + (.numTodoTests // 0),
-    total: .numTotalTests // 0,
-    exit_code: '"$exit_code"',
-    duration_ms: (.testResults[0].perfStats.runtime // 0) * 1000,
-    test_results: ((.testResults[0].assertionResults // [])[0:10])
-  }' "$results_file" 2> /dev/null \
-    || jq -n --argjson exit "$exit_code" \
+  local passed failed skipped total duration_ms assertion_results test_results
+
+  passed=$(jq -r '.numPassedTests // 0' "$results_file" 2> /dev/null) || passed=""
+  failed=$(jq -r '.numFailedTests // 0' "$results_file" 2> /dev/null) || failed=""
+  skipped=$(jq -r '(.numPendingTests // 0) + (.numTodoTests // 0)' "$results_file" 2> /dev/null) || skipped=""
+  total=$(jq -r '.numTotalTests // 0' "$results_file" 2> /dev/null) || total=""
+  duration_ms=$(jq -r '(.testResults[0].perfStats.runtime // 0) * 1000' "$results_file" 2> /dev/null) || duration_ms=""
+  assertion_results=$(jq -c '.testResults[0].assertionResults // []' "$results_file" 2> /dev/null) || assertion_results=""
+
+  if [[ -n "$assertion_results" ]]; then
+    test_results=$(printf '%s\n' "$assertion_results" | jq -c '.[0:10]' 2> /dev/null) || test_results=""
+  else
+    test_results=""
+  fi
+
+  if [[ -z "$passed" || -z "$failed" || -z "$skipped" || -z "$total" || -z "$duration_ms" || -z "$test_results" ]]; then
+    jq -n --argjson exit "$exit_code" \
       '{"framework": "jest", "passed": 0, "failed": 1, "skipped": 0, "total": 1, "exit_code": $exit, "error": "parse_error"}'
+    return 0
+  fi
+
+  jq -n \
+    --argjson passed "$passed" \
+    --argjson failed "$failed" \
+    --argjson skipped "$skipped" \
+    --argjson total "$total" \
+    --argjson exit "$exit_code" \
+    --argjson duration "$duration_ms" \
+    --argjson test_results "$test_results" \
+    '{
+      framework: "jest",
+      passed: $passed,
+      failed: $failed,
+      skipped: $skipped,
+      total: $total,
+      exit_code: $exit,
+      duration_ms: $duration,
+      test_results: $test_results
+    }'
 }
 
 parse_vitest_output() {

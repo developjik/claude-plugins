@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"
 
 source "${LIB_DIR}/browser-controller.sh"
+set +e
 
 # Test helpers
 tests_run=0
