@@ -16,23 +16,70 @@ ERRORS=0
 WARNINGS=0
 
 MODE="${1:---quick}"
+TEST_SUITE_TIMEOUT_SECONDS="${HARNESS_TEST_SUITE_TIMEOUT_SECONDS:-}"
 
 if [[ "$MODE" != "--quick" && "$MODE" != "--full" ]]; then
   echo "Usage: bash scripts/validate.sh [--quick|--full]"
   exit 1
 fi
 
+if [[ -z "$TEST_SUITE_TIMEOUT_SECONDS" ]] && [[ "${CI:-}" == "true" ]]; then
+  TEST_SUITE_TIMEOUT_SECONDS=180
+fi
+
 run_test_suite() {
   local test_file="${1:-}"
   local label="${2:-$(basename "$test_file")}"
+  local log_file exit_code
 
-  if bash "$test_file" > /tmp/harness-validate-test.log 2>&1; then
+  log_file="$(mktemp "${TMPDIR:-/tmp}/harness-validate-test.XXXXXX")"
+
+  echo "Running ${label}..."
+
+  if [[ -n "$TEST_SUITE_TIMEOUT_SECONDS" ]] && command -v python3 > /dev/null 2>&1; then
+    if python3 - "$test_file" "$log_file" "$TEST_SUITE_TIMEOUT_SECONDS" << 'PY'; then
+import subprocess
+import sys
+
+test_file, log_file, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3])
+
+with open(log_file, "w", encoding="utf-8") as handle:
+    try:
+        subprocess.run(
+            ["bash", test_file],
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+            check=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        handle.write(f"\n[TIMEOUT] exceeded {timeout}s while running {test_file}\n")
+        sys.exit(124)
+    except subprocess.CalledProcessError as exc:
+        sys.exit(exc.returncode)
+PY
+      echo -e "${GREEN}[OK]${NC} ${label}"
+      rm -f "$log_file"
+      return 0
+    fi
+
+    exit_code=$?
+  elif bash "$test_file" > "$log_file" 2>&1; then
     echo -e "${GREEN}[OK]${NC} ${label}"
+    rm -f "$log_file"
     return 0
+  else
+    exit_code=$?
   fi
 
-  echo -e "${RED}[ERROR]${NC} ${label}"
-  tail -20 /tmp/harness-validate-test.log || true
+  if [[ "$exit_code" -eq 124 ]]; then
+    echo -e "${RED}[ERROR]${NC} ${label} timed out after ${TEST_SUITE_TIMEOUT_SECONDS}s"
+  else
+    echo -e "${RED}[ERROR]${NC} ${label}"
+  fi
+
+  tail -20 "$log_file" || true
+  rm -f "$log_file"
   return 1
 }
 
