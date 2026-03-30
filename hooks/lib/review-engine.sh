@@ -1020,6 +1020,16 @@ get_review_history() {
 
 # 리뷰 결과 정리 (오래된 결과 삭제)
 # Usage: cleanup_old_reviews <project_root> [max_age_days]
+review_result_file_mtime_epoch() {
+  local file="${1:-}"
+
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    stat -f %m "$file" 2> /dev/null || echo 0
+  else
+    stat -c %Y "$file" 2> /dev/null || echo 0
+  fi
+}
+
 cleanup_old_reviews() {
   local project_root="${1:-}"
   local max_age_days="${2:-30}"
@@ -1039,7 +1049,7 @@ cleanup_old_reviews() {
   for file in "$results_dir"/*.json; do
     if [[ -f "$file" ]]; then
       local file_ts
-      file_ts=$(stat -f %m "$file" 2> /dev/null || stat -c %Y "$file" 2> /dev/null || echo 0)
+      file_ts=$(review_result_file_mtime_epoch "$file")
       local age=$((now - file_ts))
 
       if [[ $age -gt $max_age_seconds ]]; then

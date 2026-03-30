@@ -96,10 +96,10 @@ browser() {
       browser_value "$1"
       ;;
     title)
-      browser_title
+      browser_title "$(pwd)"
       ;;
     url)
-      browser_url
+      browser_url "$(pwd)"
       ;;
     html)
       browser_html "$1"
@@ -126,10 +126,10 @@ browser() {
       browser_evaluate "$1"
       ;;
     cookies)
-      browser_get_cookies
+      browser_get_cookies "$(pwd)"
       ;;
     status)
-      browser_status
+      browser_status "$(pwd)"
       ;;
     *)
       echo "Unknown command: $command"

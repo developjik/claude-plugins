@@ -8,12 +8,11 @@ set -euo pipefail
 lsp_file_mtime_epoch() {
   local file_path="${1:-}"
 
-  if stat -f %m "$file_path" > /dev/null 2>&1; then
-    stat -f %m "$file_path"
-    return 0
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    stat -f %m "$file_path" 2> /dev/null || echo 0
+  else
+    stat -c %Y "$file_path" 2> /dev/null || echo 0
   fi
-
-  stat -c %Y "$file_path" 2> /dev/null || echo 0
 }
 
 lsp_cache_is_fresh() {
@@ -235,7 +234,10 @@ lsp_collect_project_diagnostics() {
     python)
       if command -v mypy > /dev/null 2>&1; then
         local result item file line_num col message severity_word severity
-        result=$(cd "$project_root" && mypy --output json . 2> /dev/null || true)
+        result=$({
+          cd "$project_root" || exit 1
+          mypy --output json . 2> /dev/null
+        } || true)
 
         while IFS= read -r item; do
           file=$(echo "$item" | jq -r '.file')
@@ -252,7 +254,10 @@ lsp_collect_project_diagnostics() {
       ;;
     go)
       local result line
-      result=$(cd "$project_root" && go vet ./... 2>&1 || true)
+      result=$({
+        cd "$project_root" || exit 1
+        go vet ./... 2>&1
+      } || true)
 
       while IFS= read -r line; do
         if [[ "$line" =~ ^(.+):([0-9]+):([0-9]+):\ (.+)$ ]]; then
@@ -268,7 +273,10 @@ lsp_collect_project_diagnostics() {
       ;;
     rust)
       local result line message spans file line_num col severity
-      result=$(cd "$project_root" && cargo check --message-format=json 2>&1 || true)
+      result=$({
+        cd "$project_root" || exit 1
+        cargo check --message-format=json 2>&1
+      } || true)
 
       while IFS= read -r line; do
         if echo "$line" | jq -e '.reason == "compiler-message"' > /dev/null 2>&1; then

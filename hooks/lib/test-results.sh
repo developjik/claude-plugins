@@ -57,7 +57,7 @@ parse_jest_output() {
     total: .numTotalTests // 0,
     exit_code: '"$exit_code"',
     duration_ms: (.testResults[0].perfStats.runtime // 0) * 1000,
-    test_results: .testResults[0].assertionResults[:10]
+    test_results: ((.testResults[0].assertionResults // [])[0:10])
   }' "$results_file" 2> /dev/null \
     || jq -n --argjson exit "$exit_code" \
       '{"framework": "jest", "passed": 0, "failed": 1, "skipped": 0, "total": 1, "exit_code": $exit, "error": "parse_error"}'

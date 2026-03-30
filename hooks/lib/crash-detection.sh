@@ -34,12 +34,22 @@ crash_recovery_iso_to_epoch() {
   fi
 }
 
+crash_file_mtime_epoch() {
+  local file="${1:-}"
+
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    stat -f %m "$file" 2> /dev/null || echo 0
+  else
+    stat -c %Y "$file" 2> /dev/null || echo 0
+  fi
+}
+
 crash_latest_snapshot_file() {
   local snapshots_dir="${1:-}"
 
   find "$snapshots_dir" -maxdepth 1 -type f -name '*.json' -print 2> /dev/null | while IFS= read -r file; do
     local file_ts
-    file_ts=$(stat -f %m "$file" 2> /dev/null || stat -c %Y "$file" 2> /dev/null || echo 0)
+    file_ts=$(crash_file_mtime_epoch "$file")
     printf '%s\t%s\n' "$file_ts" "$file"
   done | sort -rn | head -1 | cut -f2-
 }

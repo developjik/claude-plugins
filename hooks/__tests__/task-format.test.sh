@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # task-format.test.sh — Hybrid Task Format Tests
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"

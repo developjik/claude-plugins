@@ -3,12 +3,22 @@
 
 set -euo pipefail
 
+browser_test_file_mtime_epoch() {
+  local file="${1:-}"
+
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    stat -f %m "$file" 2> /dev/null || echo 0
+  else
+    stat -c %Y "$file" 2> /dev/null || echo 0
+  fi
+}
+
 browser_test_sorted_result_files() {
   local results_dir="${1:-}"
 
   find "$results_dir" -maxdepth 1 -type f -name 'browser_test_*.json' -print 2> /dev/null | while IFS= read -r file; do
     local file_ts
-    file_ts=$(stat -f %m "$file" 2> /dev/null || stat -c %Y "$file" 2> /dev/null || echo 0)
+    file_ts=$(browser_test_file_mtime_epoch "$file")
     printf '%s\t%s\n' "$file_ts" "$file"
   done | sort -rn | cut -f2-
 }
@@ -174,7 +184,7 @@ cleanup_old_browser_results() {
   for file in "$results_dir"/*.json "$results_dir"/*.html; do
     if [[ -f "$file" ]]; then
       local file_ts
-      file_ts=$(stat -f %m "$file" 2> /dev/null || stat -c %Y "$file" 2> /dev/null || echo 0)
+      file_ts=$(browser_test_file_mtime_epoch "$file")
 
       if [[ $((now - file_ts)) -gt $max_age_seconds ]]; then
         rm -f "$file"
