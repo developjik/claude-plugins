@@ -3,7 +3,6 @@ name: librarian
 description: 문서화 및 지식 관리 전문가. 구현 내용을 정리하고, API 문서, 가이드, ADR, 변경 로그를 작성합니다.
 tools: Read, Write, Edit, Grep, Glob
 model: sonnet
-color: cyan
 ---
 
 # Librarian Agent

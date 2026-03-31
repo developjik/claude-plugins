@@ -1,17 +1,19 @@
 {
-  "name": "harness-engineering",
+  "name": "developjik-plugins",
   "metadata": {
-    "description": "Claude Code marketplace entry for Harness Engineering, a PDCA-based AI software development automation plugin with specialized agents, structured execution skills, and runtime workflow guards."
+    "description": "Claude Code marketplace for developjik plugins, including Harness Engineering and future workflow automation plugins.",
+    "pluginRoot": "./plugins"
   },
   "owner": {
-    "name": "developjik"
+    "name": "developjik",
+    "email": "developjik@gmail.com"
   },
   "plugins": [
     {
       "name": "harness-engineering",
       "description": "Extended PDCA(Plan→Design→Do→Check→Wrap-up) based AI software development automation plugin. 6 specialized agents (strategist, architect, engineer, guardian, librarian, debugger) and 13 execution skills with L0-L4 automation levels, multi-framework test runner, 4-tier verification classes, wave execution, and hash-anchored edits.",
       "category": "development",
-      "source": "./"
+      "source": "harness-engineering"
     }
   ]
 }

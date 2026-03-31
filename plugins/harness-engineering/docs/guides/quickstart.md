@@ -6,7 +6,7 @@
 
 ```bash
 # Claude Code 마켓플레이스에서 설치
-/plugin install harness-engineering
+/plugin install harness-engineering@developjik-plugins
 ```
 
 ## ⚡ 첫 번째 기능 개발 (3분)

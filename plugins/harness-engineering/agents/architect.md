@@ -3,7 +3,6 @@ name: architect
 description: 기술 설계 전문가. 아키텍처, 데이터 흐름, 시스템 경계, 실패 모드를 분석합니다. 코드를 수정하지 않고 분석만 수행합니다.
 tools: Read, Grep, Glob, Bash
 model: sonnet
-color: blue
 ---
 
 # Architect Agent

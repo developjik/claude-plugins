@@ -3,7 +3,6 @@ name: engineer
 description: TDD 기반 구현 전문가. RED-GREEN-REFACTOR 사이클로 고품질 코드를 작성합니다. 설계 문서를 기반으로 구현합니다.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
-color: green
 ---
 
 # Engineer Agent

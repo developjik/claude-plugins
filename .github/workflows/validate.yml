@@ -60,16 +60,22 @@ jobs:
             python3 - <<'PY'
           import subprocess
 
-          try:
-              subprocess.run(
-                  ["claude", "plugin", "validate", "."],
-                  check=True,
-                  timeout=60,
-              )
-          except subprocess.TimeoutExpired:
-              print("Claude plugin validation timed out after 60s; skipped.")
-          except subprocess.CalledProcessError as exc:
-              print(f"Claude plugin validation failed with exit code {exc.returncode}; ignored.")
+          targets = ["plugins/harness-engineering"]
+
+          for target in targets:
+              try:
+                  subprocess.run(
+                      ["claude", "plugin", "validate", target],
+                      check=True,
+                      timeout=60,
+                  )
+              except subprocess.TimeoutExpired:
+                  print(f"Claude plugin validation for {target} timed out after 60s; skipped.")
+              except subprocess.CalledProcessError as exc:
+                  print(
+                      f"Claude plugin validation for {target} failed "
+                      f"with exit code {exc.returncode}; ignored."
+                  )
           PY
           else
             echo "Claude CLI is not available on this runner; skipped direct plugin validation."
