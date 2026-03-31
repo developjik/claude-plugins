@@ -149,70 +149,74 @@
 ## 디렉토리 구조
 
 ```
-harness-engineering/
+developjik-plugins/
 │
 ├── .claude-plugin/
-│   ├── plugin.json          # 플러그인 매니페스트
 │   └── marketplace.json     # 마켓플레이스 설정
 │
-├── agents/                   # 에이전트 (인지 모드)
-│   ├── strategist.md        # CEO/PM - 제품 전략
-│   ├── architect.md         # 기술 리드 - 아키텍처
-│   ├── engineer.md          # TDD 구현 전문가
-│   ├── guardian.md          # 보안/품질 감사관
-│   ├── librarian.md         # 문서화 전문가
-│   └── debugger.md          # 디버깅 전문가
-│
-├── skills/                   # 스킬 (실행 절차, 13개)
-│   ├── clarify/SKILL.md     # 0단계: 요청 구체화
-│   ├── plan/SKILL.md        # 1단계: 요구사항 정의
-│   ├── design/SKILL.md      # 2단계: 기술 설계
-│   ├── implement/SKILL.md   # 3단계: TDD 구현
-│   ├── check/SKILL.md       # 4단계: 계획 대비 검증
-│   ├── wrapup/SKILL.md      # 5단계: 문서화
-│   ├── harness/SKILL.md     # 오케스트레이터
-│   ├── fullrun/SKILL.md     # 전체 자동 실행
-│   ├── debug/SKILL.md       # 4단계 디버깅
-│   ├── quick/SKILL.md       # 경량 실행
-│   ├── grill-me/SKILL.md    # 산출물 검증 질문
-│   ├── delegate/SKILL.md    # 태스크 위임
-│   └── recover/SKILL.md     # 상태 복구
-│
-├── hooks/                    # 훅 스크립트
-│   ├── hooks.json           # 훅 설정 (이벤트 라우팅)
-│   ├── session-start.sh     # 세션 시작
-│   ├── session-end.sh       # 세션 종료
-│   ├── pre-tool.sh          # 도구 실행 전
-│   ├── post-tool.sh         # 도구 실행 후
-│   ├── on-agent-start.sh    # 에이전트 시작
-│   └── on-agent-stop.sh     # 에이전트 종료
-│
-├── docs/
-│   ├── README.md            # 문서 인덱스
-│   ├── guides/              # 사용/작성 가이드
-│   ├── reference/           # 기술 레퍼런스
-│   ├── analysis/            # 분석 보고서
-│   ├── decisions/           # ADR
-│   ├── templates/           # 산출물 템플릿
-│   │   ├── clarify.md
-│   │   ├── plan.md
-│   │   ├── design.md
-│   │   ├── wrapup.md
-│   │   └── automation-config.md
-│   └── specs/               # ← 실행 시 생성됨
-│       └── <feature-slug>/  # 기능별 SSOT 저장소
-│           ├── clarify.md
-│           ├── plan.md
-│           ├── design.md
-│           └── wrapup.md
-│
-├── scripts/
-│   └── validate.sh          # 검증 스크립트
-│
-└── .harness/                 # ← 런타임 (실행 프로젝트에 생성)
-    ├── logs/                # 세션/보안 로그
-    ├── state/               # PDCA 단계, 에이전트 상태
-    └── backups/             # 파일 편집 전 백업
+└── plugins/
+    └── harness-engineering/
+        ├── .claude-plugin/
+        │   └── plugin.json  # 플러그인 매니페스트
+        │
+        ├── agents/                   # 에이전트 (인지 모드)
+        │   ├── strategist.md        # CEO/PM - 제품 전략
+        │   ├── architect.md         # 기술 리드 - 아키텍처
+        │   ├── engineer.md          # TDD 구현 전문가
+        │   ├── guardian.md          # 보안/품질 감사관
+        │   ├── librarian.md         # 문서화 전문가
+        │   └── debugger.md          # 디버깅 전문가
+        │
+        ├── skills/                   # 스킬 (실행 절차, 13개)
+        │   ├── clarify/SKILL.md     # 0단계: 요청 구체화
+        │   ├── plan/SKILL.md        # 1단계: 요구사항 정의
+        │   ├── design/SKILL.md      # 2단계: 기술 설계
+        │   ├── implement/SKILL.md   # 3단계: TDD 구현
+        │   ├── check/SKILL.md       # 4단계: 계획 대비 검증
+        │   ├── wrapup/SKILL.md      # 5단계: 문서화
+        │   ├── harness/SKILL.md     # 오케스트레이터
+        │   ├── fullrun/SKILL.md     # 전체 자동 실행
+        │   ├── debug/SKILL.md       # 4단계 디버깅
+        │   ├── quick/SKILL.md       # 경량 실행
+        │   ├── grill-me/SKILL.md    # 산출물 검증 질문
+        │   ├── delegate/SKILL.md    # 태스크 위임
+        │   └── recover/SKILL.md     # 상태 복구
+        │
+        ├── hooks/                    # 훅 스크립트
+        │   ├── hooks.json           # 훅 설정 (이벤트 라우팅)
+        │   ├── session-start.sh     # 세션 시작
+        │   ├── session-end.sh       # 세션 종료
+        │   ├── pre-tool.sh          # 도구 실행 전
+        │   ├── post-tool.sh         # 도구 실행 후
+        │   ├── on-agent-start.sh    # 에이전트 시작
+        │   └── on-agent-stop.sh     # 에이전트 종료
+        │
+        ├── docs/
+        │   ├── README.md            # 문서 인덱스
+        │   ├── guides/              # 사용/작성 가이드
+        │   ├── reference/           # 기술 레퍼런스
+        │   ├── analysis/            # 분석 보고서
+        │   ├── decisions/           # ADR
+        │   ├── templates/           # 산출물 템플릿
+        │   │   ├── clarify.md
+        │   │   ├── plan.md
+        │   │   ├── design.md
+        │   │   ├── wrapup.md
+        │   │   └── automation-config.md
+        │   └── specs/               # ← 실행 시 생성됨
+        │       └── <feature-slug>/  # 기능별 SSOT 저장소
+        │           ├── clarify.md
+        │           ├── plan.md
+        │           ├── design.md
+        │           └── wrapup.md
+        │
+        ├── scripts/
+        │   └── validate.sh          # 검증 스크립트
+        │
+        └── .harness/                # ← 런타임 (실행 프로젝트에 생성)
+            ├── logs/                # 세션/보안 로그
+            ├── state/               # PDCA 단계, 에이전트 상태
+            └── backups/             # 파일 편집 전 백업
 ```
 
 ## 스킬-에이전트 매핑

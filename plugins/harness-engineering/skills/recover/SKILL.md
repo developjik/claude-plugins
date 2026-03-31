@@ -7,7 +7,7 @@ description: |
   '복구', '롤백', '재개', '멈춤',
   Error: 'state corrupted', 'cannot continue', 'stuck in loop'
 user-invocable: true
-argument-hint: [--rollback <snapshot-id>] [--resume] [--history]
+argument-hint: "[--rollback <snapshot-id>] [--resume] [--history]"
 allowed-tools: Read, Bash, Agent
 ---
 

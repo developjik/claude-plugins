@@ -3,7 +3,6 @@ name: debugger
 description: 디버깅 전문가. 체계적 4단계 프로세스(재현→고립→근본원인→수정)로 버그를 추적하고 해결합니다.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: sonnet
-color: orange
 ---
 
 # Debugger Agent

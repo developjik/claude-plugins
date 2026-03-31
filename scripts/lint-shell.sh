@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# lint-shell.sh — shellcheck/shfmt wrapper for managed shell targets
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,83 +11,20 @@ if [[ "$MODE" != "--check" && "$MODE" != "--write" ]]; then
   exit 1
 fi
 
-SHELLCHECK_TARGETS=(
-  "hooks/common.sh"
-  "hooks/on-agent-start.sh"
-  "hooks/on-agent-stop.sh"
-  "hooks/post-tool.sh"
-  "hooks/pre-tool.sh"
-  "hooks/session-end.sh"
-  "hooks/session-start.sh"
-  "scripts/lint-shell.sh"
-  "scripts/validate.sh"
-  "hooks/lib/state-store.sh"
-  "hooks/lib/phase-cache.sh"
-  "hooks/lib/snapshot-store.sh"
-  "hooks/lib/review-evidence.sh"
-  "hooks/lib/review-engine.sh"
-  "hooks/lib/skill-metrics.sh"
-  "hooks/lib/skill-scoring.sh"
-  "hooks/lib/skill-report.sh"
-  "hooks/lib/skill-evaluation.sh"
-  "hooks/lib/crash-detection.sh"
-  "hooks/lib/crash-report.sh"
-  "hooks/lib/crash-recovery.sh"
-  "hooks/lib/subagent-request.sh"
-  "hooks/lib/subagent-collect.sh"
-  "hooks/lib/subagent-finalize.sh"
-  "hooks/lib/subagent-spawner.sh"
-  "hooks/lib/lsp-diagnostics.sh"
-  "hooks/lib/lsp-symbols.sh"
-  "hooks/lib/lsp-tools.sh"
-  "hooks/lib/browser-state.sh"
-  "hooks/lib/browser-session.sh"
-  "hooks/lib/browser-actions.sh"
-  "hooks/lib/browser-controller.sh"
-  "hooks/lib/browser-test-runner.sh"
-  "hooks/lib/browser-test-report.sh"
-  "hooks/lib/browser-testing.sh"
-  "hooks/lib/test-detection.sh"
-  "hooks/lib/test-results.sh"
-  "hooks/lib/test-runner.sh"
-  "hooks/lib/wave-graph.sh"
-  "hooks/lib/wave-runner.sh"
-  "hooks/lib/wave-executor.sh"
-)
+FOUND_PLUGIN=0
 
-SHFMT_TARGETS=(
-  "${SHELLCHECK_TARGETS[@]}"
-)
+for plugin_dir in plugins/*; do
+  [[ -d "$plugin_dir" ]] || continue
+  FOUND_PLUGIN=1
 
-for tool in shellcheck shfmt; do
-  if ! command -v "$tool" > /dev/null 2>&1; then
-    echo "[ERROR] Missing required tool: $tool" >&2
-    exit 127
+  if [[ -f "${plugin_dir}/scripts/lint-shell.sh" ]]; then
+    echo "Running shell lint for $(basename "$plugin_dir")..."
+    bash "${plugin_dir}/scripts/lint-shell.sh" "$MODE"
+  else
+    echo "Skipping $(basename "$plugin_dir"): scripts/lint-shell.sh not found"
   fi
 done
 
-shellcheck_disable_codes="SC1091,SC2016,SC2034"
-shellcheck_args=(
-  -x
-  -e
-  "$shellcheck_disable_codes"
-)
-
-shfmt_args=(
-  -i
-  2
-  -ci
-  -bn
-  -sr
-)
-
-echo "==> ShellCheck (${#SHELLCHECK_TARGETS[@]} files)"
-shellcheck "${shellcheck_args[@]}" "${SHELLCHECK_TARGETS[@]}"
-
-echo ""
-echo "==> shfmt (${#SHFMT_TARGETS[@]} files)"
-if [[ "$MODE" == "--write" ]]; then
-  shfmt "${shfmt_args[@]}" -w "${SHFMT_TARGETS[@]}"
-else
-  shfmt "${shfmt_args[@]}" -d "${SHFMT_TARGETS[@]}"
+if [[ "$FOUND_PLUGIN" -eq 0 ]]; then
+  echo "No plugins found under plugins/"
 fi

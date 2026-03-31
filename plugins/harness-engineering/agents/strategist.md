@@ -3,7 +3,6 @@ name: strategist
 description: CEO/PM 관점의 제품 전략가. 제품 방향성, 사용자 가치, 우선순위를 검토합니다. 새로운 기능이나 프로젝트의 방향을 잡을 때 활용하세요.
 tools: Read, Grep, Glob
 model: sonnet
-color: purple
 ---
 
 # Strategist Agent
