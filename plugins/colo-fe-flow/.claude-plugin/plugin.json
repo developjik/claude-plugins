@@ -1,0 +1,25 @@
+{
+  "name": "colo-fe-flow",
+  "version": "0.1.0",
+  "description": "Jira-first frontend workflow orchestration plugin for Colo. Collects context from Jira, Confluence, Figma, and the local codebase, then routes work through clarify, plan, design, implement, check, iterate, and sync-docs phases.",
+  "author": {
+    "name": "developjik",
+    "email": "developjik@gmail.com",
+    "url": "https://github.com/developjik"
+  },
+  "repository": "https://github.com/developjik/claude-plugins",
+  "homepage": "https://github.com/developjik/claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "colo",
+    "frontend",
+    "workflow",
+    "jira",
+    "figma",
+    "confluence",
+    "tdd",
+    "e2e"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
+}

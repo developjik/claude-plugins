@@ -1,5 +1,8 @@
 # Runtime
 .harness/
+.bkit/
+.colo-fe-flow/
+docs/specs/
 logs/
 state/
 *.log

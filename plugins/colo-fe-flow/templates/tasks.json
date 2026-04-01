@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "ticket_key": "FE-123",
+  "generated_from": {
+    "plan": "docs/specs/FE-123/plan.md",
+    "design": "docs/specs/FE-123/design.md"
+  },
+  "tasks": []
+}

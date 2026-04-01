@@ -1,0 +1,63 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh",
+            "description": "colo-fe-flow session initialization"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool.sh",
+            "description": "colo-fe-flow pre-tool hook"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-tool.sh",
+            "description": "colo-fe-flow post-tool hook"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "intake-agent|context-agent|planning-agent|implementation-agent|check-agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-agent-start.sh",
+            "description": "colo-fe-flow subagent start hook"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "intake-agent|context-agent|planning-agent|implementation-agent|check-agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-agent-stop.sh",
+            "description": "colo-fe-flow subagent stop hook"
+          }
+        ]
+      }
+    ]
+  }
+}

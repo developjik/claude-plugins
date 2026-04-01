@@ -14,6 +14,12 @@
       "description": "Extended PDCA(Plan→Design→Do→Check→Wrap-up) based AI software development automation plugin. 6 specialized agents (strategist, architect, engineer, guardian, librarian, debugger) and 13 execution skills with L0-L4 automation levels, multi-framework test runner, 4-tier verification classes, wave execution, and hash-anchored edits.",
       "category": "development",
       "source": "harness-engineering"
+    },
+    {
+      "name": "colo-fe-flow",
+      "description": "Jira-first frontend workflow orchestrator for Colo. Routes work through clarify, plan, design, implement, check, iterate, and local docs sync using context from Jira, Confluence, Figma, and the codebase.",
+      "category": "development",
+      "source": "colo-fe-flow"
     }
   ]
 }
